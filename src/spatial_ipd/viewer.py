@@ -20,24 +20,17 @@ from spatial_ipd.payoffs import COOPERATE
 COLOR_COOPERATE = (40, 90, 220)
 COLOR_DEFECT = (200, 40, 40)
 
-DEFAULT_HEIGHT = 32
-DEFAULT_WIDTH = 32
-DEFAULT_SEED = 42
-DEFAULT_MUTATION_RATE = 0.01
-DEFAULT_CELL_SIZE = 12
-DEFAULT_FPS = 8
-
 
 @dataclass(frozen=True)
 class ViewerConfig:
     """CLI / launch settings for the viewer window."""
 
-    height: int = DEFAULT_HEIGHT
-    width: int = DEFAULT_WIDTH
-    seed: int = DEFAULT_SEED
-    mutation_rate: float = DEFAULT_MUTATION_RATE
-    cell_size: int = DEFAULT_CELL_SIZE
-    fps: int = DEFAULT_FPS
+    height: int = 32
+    width: int = 32
+    seed: int = 42
+    mutation_rate: float = 0.01
+    cell_size: int = 12
+    fps: int = 8
 
 
 def cell_color(strategy: int) -> tuple[int, int, int]:
@@ -69,17 +62,18 @@ def parse_args(argv: list[str] | None = None) -> ViewerConfig:
         prog="spatial_ipd.viewer",
         description="Visualize the Spatial IPD lattice (C=blue, D=red).",
     )
-    parser.add_argument("--height", type=int, default=DEFAULT_HEIGHT)
-    parser.add_argument("--width", type=int, default=DEFAULT_WIDTH)
-    parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
+    defaults = ViewerConfig()
+    parser.add_argument("--height", type=int, default=defaults.height)
+    parser.add_argument("--width", type=int, default=defaults.width)
+    parser.add_argument("--seed", type=int, default=defaults.seed)
     parser.add_argument(
         "--mutation-rate",
         type=float,
-        default=DEFAULT_MUTATION_RATE,
+        default=defaults.mutation_rate,
         dest="mutation_rate",
     )
-    parser.add_argument("--cell-size", type=int, default=DEFAULT_CELL_SIZE, dest="cell_size")
-    parser.add_argument("--fps", type=int, default=DEFAULT_FPS)
+    parser.add_argument("--cell-size", type=int, default=defaults.cell_size, dest="cell_size")
+    parser.add_argument("--fps", type=int, default=defaults.fps)
     ns = parser.parse_args(argv)
     return validate_config(
         ViewerConfig(
@@ -120,15 +114,14 @@ def import_pygame():
 
 
 def _draw_grid(pygame, screen, grid: list[list[int]], cell_size: int) -> None:
-    """Paint one pixel per cell, then scale up to ``cell_size``."""
-    height = len(grid)
-    width = len(grid[0])
-    surface = pygame.Surface((width, height))
-    for r, row in enumerate(grid):
-        for c, cell in enumerate(row):
-            surface.set_at((c, r), cell_color(cell))
-    scaled = pygame.transform.scale(surface, (width * cell_size, height * cell_size))
-    screen.blit(scaled, (0, 0))
+    """Paint the same RGB frame ``color_frame`` builds as cell-sized squares."""
+    for r, row in enumerate(color_frame(grid)):
+        for c, color in enumerate(row):
+            pygame.draw.rect(
+                screen,
+                color,
+                (c * cell_size, r * cell_size, cell_size, cell_size),
+            )
 
 
 def run(config: ViewerConfig) -> None:
