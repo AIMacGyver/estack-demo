@@ -44,7 +44,7 @@ python3 -m pip install pytest
 PYTHONPATH=src python3 -m pytest
 ```
 
-There is no CLI and no visualization. Import the engine:
+Import the engine, or export a cooperation-rate time series without a display:
 
 ```python
 from spatial_ipd import simulate
@@ -52,5 +52,16 @@ from spatial_ipd import simulate
 result = simulate(height=20, width=20, generations=50, seed=42, mutation_rate=0.01)
 print(result.final_cooperation_rate)
 ```
+
+```bash
+PYTHONPATH=src python3 -m spatial_ipd.export \
+  --height 12 --width 12 --generations 30 \
+  --seed 20260316 --mutation-rate 0.02 \
+  --out coop_rates.csv
+```
+
+CSV shape: header `generation,cooperation_rate`, then one row per recorded snapshot. Generation `0` is the initial lattice; later rows are the rate after each update. The command prints one summary line (`final_cooperation_rate=… generations=… seed=…`).
+
+The 12×12 / 30-generation / seed `20260316` / mutation `0.02` run is the locked engine golden (final cooperation `2/144`).
 
 `simulate` and `step` are deterministic for a fixed seed, size, mutation rate, and generation count.
