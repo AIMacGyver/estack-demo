@@ -48,11 +48,10 @@ Each cell is Cooperate (`C = 1`) or Defect (`D = 0`). Every generation the cell 
 
 ## Optional TypeSafe labels
 
-After a run, [TypeSafe](https://docs.typesafe.ai) (Jev) can label the cooperation-rate *shape*. It does not change payoffs or update rules. Needs `TYPESAFE_API_KEY`.
+After a run, [TypeSafe](https://docs.typesafe.ai) (Jev) can label the cooperation-rate *shape*. It does not change payoffs or update rules. Needs `TYPESAFE_API_KEY` (env var or a local `.env`, which is gitignored).
 
 ```bash
 python3 -m pip install -e ".[typesafe]"
-export TYPESAFE_API_KEY=...
 python3 -m spatial_ipd.label \
   --height 12 --width 12 --generations 30 \
   --seed 20260316 --mutation-rate 0.02
