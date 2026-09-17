@@ -82,7 +82,7 @@ uv run python -m spatial_ipd.think \
   --seats frontier --compare --verbose
 ```
 
-`--compare` prints plain `simulate()` vs the thinker run. `--verbose` prints each seat’s act / worth / confidence.
+`--compare` prints plain `simulate()` vs the thinker run. `--verbose` prints each seat’s act, worth, resist noul (not Choice confidence), and the imitate scores Jev saw (`focal_score`, `best_neighbor_score`, `best_neighbor_strategy`).
 
 Viewer outlines thinker seats in gold when `--think-every` is set (`--seats` works there too).
 

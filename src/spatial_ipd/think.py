@@ -48,6 +48,9 @@ class ThinkerDecision:
     before: int
     after_imitate: int
     after_think: int
+    focal_score: int = 0
+    best_neighbor_score: int = 0
+    best_neighbor_strategy: int = 0
 
 
 @dataclass(frozen=True)
@@ -232,6 +235,7 @@ def decisions_from_response(
     generation: int,
 ) -> list[ThinkerDecision]:
     """Map a TypeSafe (or test double) response onto per-seat decisions."""
+    scores = score_cells(before)
     out: list[ThinkerDecision] = []
     for i, (row, col) in enumerate(seats):
         worth = float(response.nouls[f"worth_thinking_{i}"].noul)
@@ -241,6 +245,7 @@ def decisions_from_response(
         applied = should_resist(worth, resist, pre, mid)
         act = "hold" if applied else "imitate"
         nxt = resolve_strategy(pre, mid, act) if applied else mid
+        best_score, best_strategy = winning_imitate(before, scores, row, col)
         out.append(
             ThinkerDecision(
                 generation=generation,
@@ -253,6 +258,9 @@ def decisions_from_response(
                 before=pre,
                 after_imitate=mid,
                 after_think=nxt,
+                focal_score=int(scores[row][col]),
+                best_neighbor_score=best_score,
+                best_neighbor_strategy=best_strategy,
             )
         )
     return out
@@ -468,7 +476,9 @@ def format_decision_line(item: ThinkerDecision) -> str:
     applied = "yes" if item.applied else "no"
     return (
         f"gen={item.generation} row={item.row} col={item.col} "
-        f"act={item.act} worth={item.worth_thinking} conf={item.act_confidence} "
+        f"act={item.act} worth={item.worth_thinking} resist={item.act_confidence} "
+        f"focal_score={item.focal_score} best_neighbor_score={item.best_neighbor_score} "
+        f"best_neighbor_strategy={item.best_neighbor_strategy} "
         f"applied={applied} before={item.before} after_imitate={item.after_imitate} "
         f"after_think={item.after_think}"
     )
@@ -516,7 +526,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--verbose",
         action="store_true",
-        help="Print one line per thinker seat (act, worth, confidence, applied).",
+        help="Print one line per thinker seat (act, worth, resist noul, imitate scores, applied).",
     )
     return parser.parse_args(argv)
 

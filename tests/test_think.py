@@ -424,7 +424,6 @@ def test_format_compare_zero_thinkers_matches_golden():
 
 
 def test_format_decision_line_includes_act():
-
     line = format_decision_line(
         ThinkerDecision(
             generation=5,
@@ -437,10 +436,44 @@ def test_format_decision_line_includes_act():
             before=1,
             after_imitate=0,
             after_think=1,
+            focal_score=21,
+            best_neighbor_score=40,
+            best_neighbor_strategy=D,
         )
     )
     assert line.startswith("gen=5 row=1 col=2 act=hold")
     assert "applied=yes" in line
+    assert "resist=0.4" in line
+    assert "conf=" not in line
+    assert "focal_score=21" in line
+    assert "best_neighbor_score=40" in line
+    assert "best_neighbor_strategy=0" in line
+
+
+def test_decisions_copy_imitate_scores_onto_the_line():
+    before = [
+        [C, C, C],
+        [C, D, C],
+        [C, C, C],
+    ]
+    after = adopt_best(before, score_cells(before))
+    decisions = decisions_from_response(
+        ((0, 0),),
+        before,
+        after,
+        _response([("imitate", 0.9, 0.3)]),
+        generation=4,
+    )
+    item = decisions[0]
+    scores = score_cells(before)
+    best_score, best_strategy = winning_imitate(before, scores, 0, 0)
+    assert item.focal_score == scores[0][0]
+    assert item.best_neighbor_score == best_score
+    assert item.best_neighbor_strategy == best_strategy
+    line = format_decision_line(item)
+    assert f"focal_score={item.focal_score}" in line
+    assert f"best_neighbor_score={item.best_neighbor_score}" in line
+    assert f"resist={item.act_confidence}" in line
 
 
 def test_state_for_thinkers_lists_before_and_after():
