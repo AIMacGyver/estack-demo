@@ -71,7 +71,9 @@ Questions and the survival threshold live in `src/spatial_ipd/judgments.py`.
 
 Most cells still imitate. Every `--think-every` generations, a few seats ask Jev whether a **C→D** cell should stay C to keep a cluster even though `best_neighbor_score` beat `focal_score`. Resist is asked only on real C→D seats. Code applies hold if worth and resist are both ≥ 0.6. This demo is Jev agreeing with imitate-the-best on a collapsing lattice, not a leftover-C rescue. Thinker JSON includes those imitate scores from `score_cells(before)` (same tie-break as `adopt_best`). Default `--seats frontier` prefers cells that just changed, then C/D edges. Default `--think-last 5` also thinks on every generation in the last five. Default `--sticky 5` keeps an applied hold for five later gens. `--seats random`, `--think-last 0`, and `--sticky 0` keep the older schedule. Payoffs and the default `simulate()` golden do not change. Needs `TYPESAFE_API_KEY`.
 
-The engine golden is still seed `20260316` (export / `think_every=0`). The thinker demo uses seed `1`: a live `--compare` is `plain_final=0.01171875` `think_final=0.01171875` `delta=0.0` (`holds=0`). Seed `20260316` with the same flags stayed `delta=0`.
+The engine golden is still seed `20260316` (export / `think_every=0`). The thinker demo uses seed `1`. Same seats and 0.6 gate; `--backend` picks who answers worth/resist.
+
+**Jev** (needs `TYPESAFE_API_KEY`): live `--compare` was `plain_final=0.01171875` `think_final=0.01171875` `delta=0.0` (`holds=0`). Resist on C→D sat around 0.32–0.38. Default `--backend jev`.
 
 ```bash
 uv sync --extra typesafe
@@ -79,12 +81,10 @@ uv run python -m spatial_ipd.think \
   --height 16 --width 16 --generations 30 \
   --seed 1 --mutation-rate 0.02 \
   --think-every 5 --think-last 5 --sticky 5 --thinkers 4 \
-  --seats frontier --compare --verbose
+  --seats frontier --backend jev --compare --verbose
 ```
 
-`--compare` prints plain `simulate()` vs the thinker run. `--verbose` prints each seat’s act, worth, resist noul (`n/a` when the seat was not C→D), and the imitate scores Jev saw.
-
-`--backend random` is a seeded Uniform[0, 1] control for worth/resist (same seats and 0.6 gate, no API key). Default `--backend jev` is unchanged.
+**Random** (no API key): seeded Uniform[0, 1] control. Same command with `--backend random` produced `think_final=0.0234375` `delta=0.01171875` (`holds=3`) — luck holds on Cs that already lost on payoff.
 
 ```bash
 uv run python -m spatial_ipd.think \
@@ -93,6 +93,8 @@ uv run python -m spatial_ipd.think \
   --think-every 5 --think-last 5 --sticky 5 --thinkers 4 \
   --seats frontier --backend random --compare --verbose
 ```
+
+`--compare` prints plain `simulate()` vs the thinker run. `--verbose` prints each seat’s act, worth, resist noul (`n/a` when the seat was not C→D), and the imitate scores.
 
 Viewer outlines thinker seats in gold when `--think-every` is set (`--seats` works there too).
 
