@@ -16,7 +16,7 @@ from spatial_ipd.engine import (
     step,
 )
 from spatial_ipd.judgments import (
-    ACT_OVERRIDE_CONFIDENCE,
+    RESIST_YES_THRESHOLD,
     WORTH_THINKING_THRESHOLD,
     typesafe_thinker_questions,
 )
@@ -173,9 +173,14 @@ def resolve_strategy(before: int, after_imitate: int, act: str) -> int:
     return int(after_imitate)
 
 
-def should_apply(worth_thinking: float, act_confidence: float) -> bool:
-    """Return True when Jev is sure enough to override imitation."""
-    return worth_thinking >= WORTH_THINKING_THRESHOLD and act_confidence >= ACT_OVERRIDE_CONFIDENCE
+def should_resist(worth_thinking: float, resist: float, before: int, after_imitate: int) -> bool:
+    """Hold only on a C→D copy when worth and resist nouls clear the gate."""
+    return (
+        int(before) == COOPERATE
+        and int(after_imitate) == DEFECT
+        and worth_thinking >= WORTH_THINKING_THRESHOLD
+        and resist >= RESIST_YES_THRESHOLD
+    )
 
 
 def state_for_thinkers(
@@ -211,12 +216,11 @@ def decisions_from_response(
     out: list[ThinkerDecision] = []
     for i, (row, col) in enumerate(seats):
         worth = float(response.nouls[f"worth_thinking_{i}"].noul)
-        choice = response.choices[f"act_{i}"]
-        act = str(choice.choice)
-        conf = float(choice.confidence)
-        applied = should_apply(worth, conf) and act in {"hold", "flip"}
+        resist = float(response.nouls[f"resist_{i}"].noul)
         pre = int(before[row][col])
         mid = int(after[row][col])
+        applied = should_resist(worth, resist, pre, mid)
+        act = "hold" if applied else "imitate"
         nxt = resolve_strategy(pre, mid, act) if applied else mid
         out.append(
             ThinkerDecision(
@@ -225,7 +229,7 @@ def decisions_from_response(
                 col=col,
                 act=act,
                 worth_thinking=worth,
-                act_confidence=conf,
+                act_confidence=resist,
                 applied=applied,
                 before=pre,
                 after_imitate=mid,

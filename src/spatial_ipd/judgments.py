@@ -59,9 +59,10 @@ SURVIVED_CRITERIA = {
 
 # Dual-process thinkers. Bake-off (jev-1.13.0): mixed 3x3 worth~0.9;
 # uniform all-C/all-D worth~0.08. A C cell that just copied an invading D
-# chose hold (0.60, conf 0.40).
+# chose hold. Live runs: 3-way act Choice often said hold at conf 0.21–0.28
+# (split mass). Resist is now a Noul so P(yes) is the gate, not Choice confidence.
 WORTH_THINKING_THRESHOLD = 0.6
-ACT_OVERRIDE_CONFIDENCE = 0.3
+RESIST_YES_THRESHOLD = 0.6
 
 THINKER_WORTH_INSTRUCTIONS = (
     "Using `thinkers[{i}].patch_after` and `thinkers[{i}].after_imitate`, "
@@ -74,18 +75,16 @@ THINKER_WORTH_CRITERIA = {
     "false": "The patch is uniform and the cell did not just change.",
 }
 
-THINKER_ACT_INSTRUCTIONS = (
-    "A Spatial IPD cell just finished imitate-the-best. "
-    "`thinkers[{i}].before` was its strategy at the start of the generation; "
-    "`thinkers[{i}].after_imitate` is what imitation produced (1=C, 0=D). "
+THINKER_RESIST_INSTRUCTIONS = (
+    "This seat was Cooperate (`thinkers[{i}].before` = 1) and imitation just "
+    "made it Defect (`thinkers[{i}].after_imitate` = 0). "
     "`thinkers[{i}].patch_after` is the 3x3 after imitation (center is this cell). "
-    "Pick one override."
+    "Should this cooperator resist and stay C?"
 )
 
-THINKER_ACT_CRITERIA = {
-    "imitate": "Keep `after_imitate`. Local copy-the-winner is fine.",
-    "hold": ("Restore `before`. Resist the copy — stay with what this cell played at the start of the generation."),
-    "flip": "Invert `after_imitate` (not merely restore `before`).",
+THINKER_RESIST_CRITERIA = {
+    "true": "Resisting the copy would protect a C that just lost to imitate-the-best.",
+    "false": "The copy is fine; this cell should stay D.",
 }
 
 THINKER_FRAGILITY_INSTRUCTIONS = "How fragile is cooperation in `thinkers[{i}].patch_after` for the next generation?"
@@ -120,11 +119,11 @@ def typesafe_questions():
 
 
 def typesafe_thinker_questions(count: int) -> dict:
-    """One worth/act/fragility triple per thinker, same state, one API call."""
+    """One worth/resist/fragility triple per thinker, same state, one API call."""
     if count < 1:
         return {}
     try:
-        from typesafe_sdk import Choice, Noul, Score
+        from typesafe_sdk import Noul, Score
     except ImportError as exc:
         raise ImportError('TypeSafe is optional. Install with: python3 -m pip install -e ".[typesafe]"') from exc
     questions = {}
@@ -136,9 +135,9 @@ def typesafe_thinker_questions(count: int) -> dict:
                 "false": THINKER_WORTH_CRITERIA["false"],
             },
         )
-        questions[f"act_{i}"] = Choice(
-            instructions=THINKER_ACT_INSTRUCTIONS.format(i=i),
-            criteria=THINKER_ACT_CRITERIA,
+        questions[f"resist_{i}"] = Noul(
+            instructions=THINKER_RESIST_INSTRUCTIONS.format(i=i),
+            criteria=THINKER_RESIST_CRITERIA,
         )
         questions[f"cluster_fragility_{i}"] = Score(
             instructions=THINKER_FRAGILITY_INSTRUCTIONS.format(i=i),

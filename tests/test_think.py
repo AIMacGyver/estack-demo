@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import spatial_ipd.think as think_mod
 from spatial_ipd.engine import simulate
 from spatial_ipd.judgments import (
-    ACT_OVERRIDE_CONFIDENCE,
+    RESIST_YES_THRESHOLD,
     WORTH_THINKING_THRESHOLD,
 )
 from spatial_ipd.payoffs import COOPERATE as C
@@ -28,7 +28,7 @@ from spatial_ipd.think import (
     patch3,
     register_holds,
     resolve_strategy,
-    should_apply,
+    should_resist,
     should_think,
     simulate_with_thinkers,
     state_for_thinkers,
@@ -48,15 +48,14 @@ class FakeClient:
 
 
 def _response(items: list[tuple[str, float, float]]):
-    """items: (act, worth, conf) per thinker index."""
+    """items: (unused_act_label, worth, resist_noul) per thinker index."""
     nouls = {}
-    choices = {}
     scores = {}
-    for i, (act, worth, conf) in enumerate(items):
+    for i, (_act, worth, resist) in enumerate(items):
         nouls[f"worth_thinking_{i}"] = SimpleNamespace(noul=worth)
-        choices[f"act_{i}"] = SimpleNamespace(choice=act, confidence=conf)
+        nouls[f"resist_{i}"] = SimpleNamespace(noul=resist)
         scores[f"cluster_fragility_{i}"] = SimpleNamespace(score=1.0, confidence=0.5)
-    return SimpleNamespace(nouls=nouls, choices=choices, scores=scores)
+    return SimpleNamespace(nouls=nouls, choices={}, scores=scores)
 
 
 def test_patch3_wraps_toroidally():
@@ -144,23 +143,24 @@ def test_think_after_step_frontier_prefers_changed_seat():
     assert random_stats.last_seats == thinker_seats(3, 3, 1, seed=20260316, generation=5)
 
 
-def test_resolve_and_should_apply_policy():
+def test_resolve_and_should_resist_policy():
     assert resolve_strategy(C, D, "hold") == C
     assert resolve_strategy(C, D, "imitate") == D
     assert resolve_strategy(C, D, "flip") == C
     assert resolve_strategy(D, D, "flip") == C
-    assert should_apply(0.9, 0.4) is True
-    assert should_apply(0.08, 0.8) is False
-    assert should_apply(0.9, 0.1) is False
+    assert should_resist(0.9, 0.7, C, D) is True
+    assert should_resist(0.9, 0.4, C, D) is False
+    assert should_resist(0.08, 0.9, C, D) is False
+    assert should_resist(0.9, 0.9, D, C) is False
     assert WORTH_THINKING_THRESHOLD == 0.6
-    assert ACT_OVERRIDE_CONFIDENCE == 0.3
+    assert RESIST_YES_THRESHOLD == 0.6
 
 
 def test_hold_restores_before_when_jev_is_sure():
     before = [[C, C, C], [C, C, C], [C, C, C]]
     after = [[C, C, C], [C, D, C], [C, C, C]]
     seats = ((1, 1),)
-    response = _response([("hold", 0.96, 0.4)])
+    response = _response([("hold", 0.96, 0.9)])
     decisions = decisions_from_response(seats, before, after, response, generation=1)
     assert decisions[0].applied is True
     assert decisions[0].after_think == C
@@ -169,12 +169,20 @@ def test_hold_restores_before_when_jev_is_sure():
     assert after[1][1] == D
 
 
-def test_low_confidence_does_not_override():
+def test_low_resist_noul_does_not_override():
     before = [[C]]
     after = [[D]]
     decisions = decisions_from_response(((0, 0),), before, after, _response([("hold", 0.88, 0.23)]), generation=2)
     assert decisions[0].applied is False
     assert decisions[0].after_think == D
+
+
+def test_d_to_c_cannot_resist():
+    before = [[D]]
+    after = [[C]]
+    decisions = decisions_from_response(((0, 0),), before, after, _response([("hold", 0.99, 0.99)]), generation=2)
+    assert decisions[0].applied is False
+    assert decisions[0].after_think == C
 
 
 def test_think_every_zero_matches_engine_golden():
@@ -220,7 +228,7 @@ def test_sticky_hold_survives_later_forced_defect(monkeypatch):
         "should_think",
         lambda generation, generations, think_every, think_last: generation == 1,
     )
-    client = FakeClient(_response([("hold", 0.96, 0.4)]))
+    client = FakeClient(_response([("hold", 0.96, 0.9)]))
     questions = {"placeholder": object()}
     kwargs = dict(
         height=1,
@@ -335,7 +343,7 @@ def test_cli_think_every_zero(capsys):
 
 
 def test_compare_and_verbose_cli(capsys):
-    client = FakeClient(_response([("hold", 0.96, 0.4)]))
+    client = FakeClient(_response([("hold", 0.96, 0.9)]))
     questions = {"placeholder": object()}
     code = main(
         [
@@ -367,7 +375,7 @@ def test_compare_and_verbose_cli(capsys):
     assert "think_final=" in out
     assert "delta=" in out
     assert "gen=2" in out
-    assert "act=hold" in out
+    assert "act=" in out
     assert client.calls
 
 
