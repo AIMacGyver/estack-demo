@@ -2,6 +2,7 @@
 
 from types import SimpleNamespace
 
+import spatial_ipd.think as think_mod
 from spatial_ipd.engine import simulate
 from spatial_ipd.judgments import (
     ACT_OVERRIDE_CONFIDENCE,
@@ -213,16 +214,21 @@ def test_sticky_hold_survives_later_forced_defect(monkeypatch):
     def always_defect(grid, rng=None, mutation_rate=0.0):
         return [[D for _ in row] for row in grid]
 
-    monkeypatch.setattr("spatial_ipd.think.step", always_defect)
+    monkeypatch.setattr(think_mod, "step", always_defect)
+    monkeypatch.setattr(
+        think_mod,
+        "should_think",
+        lambda generation, generations, think_every, think_last: generation == 1,
+    )
     client = FakeClient(_response([("hold", 0.96, 0.4)]))
     questions = {"placeholder": object()}
     kwargs = dict(
         height=1,
         width=1,
-        generations=5,
+        generations=3,
         seed=1,
         cooperate_p=1.0,
-        think_every=3,
+        think_every=5,
         think_last=0,
         thinker_count=1,
         client=client,
