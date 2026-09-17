@@ -32,6 +32,7 @@ def _copy_grid(grid: Grid) -> Grid:
 class ThinkerDecision:
     """One Jev decision for a thinker seat after imitation."""
 
+    generation: int
     row: int
     col: int
     act: str
@@ -53,6 +54,7 @@ class ThinkerStats:
     imitates: int = 0
     last_seats: tuple[tuple[int, int], ...] = ()
     last_decisions: tuple[ThinkerDecision, ...] = field(default_factory=tuple)
+    all_decisions: list[ThinkerDecision] = field(default_factory=list)
 
 
 def patch3(grid: Grid, row: int, col: int) -> list[list[int]]:
@@ -119,6 +121,8 @@ def decisions_from_response(
     before: Grid,
     after: Grid,
     response: object,
+    *,
+    generation: int,
 ) -> list[ThinkerDecision]:
     """Map a TypeSafe (or test double) response onto per-seat decisions."""
     out: list[ThinkerDecision] = []
@@ -133,6 +137,7 @@ def decisions_from_response(
         nxt = resolve_strategy(pre, mid, act) if applied else mid
         out.append(
             ThinkerDecision(
+                generation=generation,
                 row=row,
                 col=col,
                 act=act,
@@ -188,8 +193,9 @@ def think_after_step(
         response = client.system_one(state=state, questions=qs)
 
     tally.calls += 1
-    decisions = decisions_from_response(seats, before, after, response)
+    decisions = decisions_from_response(seats, before, after, response, generation=generation)
     tally.last_decisions = tuple(decisions)
+    tally.all_decisions.extend(decisions)
     for item in decisions:
         if item.applied and item.act == "hold":
             tally.holds += 1
@@ -272,6 +278,28 @@ def format_think_summary(result: SimulationResult, stats: ThinkerStats) -> str:
     )
 
 
+def format_compare_summary(plain: SimulationResult, think: SimulationResult, stats: ThinkerStats) -> str:
+    """Plain simulate() vs thinker run, so you can see if Jev moved the needle."""
+    delta = think.final_cooperation_rate - plain.final_cooperation_rate
+    return (
+        f"plain_final={plain.final_cooperation_rate} "
+        f"think_final={think.final_cooperation_rate} "
+        f"delta={delta} think_calls={stats.calls} "
+        f"holds={stats.holds} flips={stats.flips} imitates={stats.imitates}"
+    )
+
+
+def format_decision_line(item: ThinkerDecision) -> str:
+    """One inspectable line for a single thinker seat."""
+    applied = "yes" if item.applied else "no"
+    return (
+        f"gen={item.generation} row={item.row} col={item.col} "
+        f"act={item.act} worth={item.worth_thinking} conf={item.act_confidence} "
+        f"applied={applied} before={item.before} after_imitate={item.after_imitate} "
+        f"after_think={item.after_think}"
+    )
+
+
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     """Parse thinker CLI flags."""
     parser = argparse.ArgumentParser(
@@ -288,6 +316,16 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--mutation-rate", type=float, default=0.0)
     parser.add_argument("--think-every", type=int, default=5)
     parser.add_argument("--thinkers", type=int, default=4)
+    parser.add_argument(
+        "--compare",
+        action="store_true",
+        help="Also run plain simulate() and print both final cooperation rates.",
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Print one line per thinker seat (act, worth, confidence, applied).",
+    )
     return parser.parse_args(argv)
 
 
@@ -300,18 +338,28 @@ def main(
     """Run Spatial IPD with optional Jev thinker overrides."""
     load_dotenv()
     args = parse_args(argv)
-    result, stats = simulate_with_thinkers(
-        args.height,
-        args.width,
-        args.generations,
+    kwargs = dict(
+        height=args.height,
+        width=args.width,
+        generations=args.generations,
         seed=args.seed,
         mutation_rate=args.mutation_rate,
+    )
+    result, stats = simulate_with_thinkers(
+        **kwargs,
         think_every=args.think_every,
         thinker_count=args.thinkers,
         client=client,
         questions=questions,
     )
-    print(format_think_summary(result, stats))
+    if args.compare:
+        plain = simulate(**kwargs)
+        print(format_compare_summary(plain, result, stats))
+    else:
+        print(format_think_summary(result, stats))
+    if args.verbose:
+        for item in stats.all_decisions:
+            print(format_decision_line(item))
     return 0
 
 

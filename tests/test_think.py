@@ -10,8 +10,11 @@ from spatial_ipd.judgments import (
 from spatial_ipd.payoffs import COOPERATE as C
 from spatial_ipd.payoffs import DEFECT as D
 from spatial_ipd.think import (
+    ThinkerDecision,
     apply_decisions,
     decisions_from_response,
+    format_compare_summary,
+    format_decision_line,
     format_think_summary,
     main,
     patch3,
@@ -83,7 +86,7 @@ def test_hold_restores_before_when_jev_is_sure():
     after = [[C, C, C], [C, D, C], [C, C, C]]
     seats = ((1, 1),)
     response = _response([("hold", 0.96, 0.4)])
-    decisions = decisions_from_response(seats, before, after, response)
+    decisions = decisions_from_response(seats, before, after, response, generation=1)
     assert decisions[0].applied is True
     assert decisions[0].after_think == C
     nxt = apply_decisions(after, decisions)
@@ -94,7 +97,7 @@ def test_hold_restores_before_when_jev_is_sure():
 def test_low_confidence_does_not_override():
     before = [[C]]
     after = [[D]]
-    decisions = decisions_from_response(((0, 0),), before, after, _response([("hold", 0.88, 0.23)]))
+    decisions = decisions_from_response(((0, 0),), before, after, _response([("hold", 0.88, 0.23)]), generation=2)
     assert decisions[0].applied is False
     assert decisions[0].after_think == D
 
@@ -154,6 +157,68 @@ def test_cli_think_every_zero(capsys):
     assert "final_cooperation_rate=0.013888888888888888" in out
     result, stats = simulate_with_thinkers(12, 12, 30, seed=20260316, mutation_rate=0.02, think_every=0)
     assert format_think_summary(result, stats) in out
+
+
+def test_compare_and_verbose_cli(capsys):
+    client = FakeClient(_response([("hold", 0.96, 0.4)]))
+    questions = {"placeholder": object()}
+    code = main(
+        [
+            "--height",
+            "2",
+            "--width",
+            "2",
+            "--generations",
+            "2",
+            "--seed",
+            "1",
+            "--think-every",
+            "2",
+            "--thinkers",
+            "1",
+            "--compare",
+            "--verbose",
+        ],
+        client=client,
+        questions=questions,
+    )
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "plain_final=" in out
+    assert "think_final=" in out
+    assert "delta=" in out
+    assert "gen=2" in out
+    assert "act=hold" in out
+    assert client.calls
+
+
+def test_format_compare_zero_thinkers_matches_golden():
+    kwargs = dict(height=12, width=12, generations=30, seed=20260316, mutation_rate=0.02)
+    plain = simulate(**kwargs)
+    think, stats = simulate_with_thinkers(**kwargs, think_every=0)
+    line = format_compare_summary(plain, think, stats)
+    assert "delta=0.0" in line or "delta=0" in line
+    assert think.final_cooperation_rate == 2 / 144
+
+
+def test_format_decision_line_includes_act():
+
+    line = format_decision_line(
+        ThinkerDecision(
+            generation=5,
+            row=1,
+            col=2,
+            act="hold",
+            worth_thinking=0.96,
+            act_confidence=0.4,
+            applied=True,
+            before=1,
+            after_imitate=0,
+            after_think=1,
+        )
+    )
+    assert line.startswith("gen=5 row=1 col=2 act=hold")
+    assert "applied=yes" in line
 
 
 def test_state_for_thinkers_lists_before_and_after():

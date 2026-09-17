@@ -76,8 +76,11 @@ uv sync --extra typesafe
 uv run python -m spatial_ipd.think \
   --height 16 --width 16 --generations 30 \
   --seed 20260316 --mutation-rate 0.02 \
-  --think-every 5 --thinkers 4
+  --think-every 5 --thinkers 4 \
+  --compare --verbose
 ```
+
+`--compare` prints plain `simulate()` vs the thinker run. `--verbose` prints each seat’s act / worth / confidence.
 
 Viewer outlines thinker seats in gold when `--think-every` is set.
 
