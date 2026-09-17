@@ -69,9 +69,9 @@ Questions and the survival threshold live in `src/spatial_ipd/judgments.py`.
 
 ## Optional Jev thinkers
 
-Most cells still imitate. Every `--think-every` generations, a few seats ask Jev whether a **C→D** cell should stay C to keep a cluster even though `best_neighbor_score` beat `focal_score` (Noul, not a 3-way hold/flip Choice — live runs were stuck at Choice conf 0.21–0.28). Code applies hold if worth and resist are both ≥ 0.6. Thinker JSON includes those imitate scores from `score_cells(before)` (same tie-break as `adopt_best`). Default `--seats frontier` prefers cells that just changed, then C/D edges. Default `--think-last 5` also thinks on every generation in the last five. Default `--sticky 5` keeps an applied hold for five later gens. `--seats random`, `--think-last 0`, and `--sticky 0` keep the older schedule. Payoffs and the default `simulate()` golden do not change. Needs `TYPESAFE_API_KEY`.
+Most cells still imitate. Every `--think-every` generations, a few seats ask Jev whether a **C→D** cell should stay C to keep a cluster even though `best_neighbor_score` beat `focal_score`. Resist is asked only on real C→D seats. Code applies hold if worth and resist are both ≥ 0.6. This demo is Jev agreeing with imitate-the-best on a collapsing lattice, not a leftover-C rescue. Thinker JSON includes those imitate scores from `score_cells(before)` (same tie-break as `adopt_best`). Default `--seats frontier` prefers cells that just changed, then C/D edges. Default `--think-last 5` also thinks on every generation in the last five. Default `--sticky 5` keeps an applied hold for five later gens. `--seats random`, `--think-last 0`, and `--sticky 0` keep the older schedule. Payoffs and the default `simulate()` golden do not change. Needs `TYPESAFE_API_KEY`.
 
-The engine golden is still seed `20260316` (export / `think_every=0`). The thinker demo uses seed `1`: a live `--compare` on this command after scores-in-state produced `plain_final=0.01171875` `think_final=0.01171875` `delta=0.0` (`holds=0`). Seed `20260316` with the same flags stayed `delta=0`.
+The engine golden is still seed `20260316` (export / `think_every=0`). The thinker demo uses seed `1`: a live `--compare` is `plain_final=0.01171875` `think_final=0.01171875` `delta=0.0` (`holds=0`). Seed `20260316` with the same flags stayed `delta=0`.
 
 ```bash
 uv sync --extra typesafe
@@ -82,7 +82,7 @@ uv run python -m spatial_ipd.think \
   --seats frontier --compare --verbose
 ```
 
-`--compare` prints plain `simulate()` vs the thinker run. `--verbose` prints each seat’s act, worth, resist noul (not Choice confidence), and the imitate scores Jev saw (`focal_score`, `best_neighbor_score`, `best_neighbor_strategy`).
+`--compare` prints plain `simulate()` vs the thinker run. `--verbose` prints each seat’s act, worth, resist noul (`n/a` when the seat was not C→D), and the imitate scores Jev saw.
 
 Viewer outlines thinker seats in gold when `--think-every` is set (`--seats` works there too).
 

@@ -2,6 +2,8 @@
 
 from types import SimpleNamespace
 
+import pytest
+
 import spatial_ipd.think as think_mod
 from spatial_ipd.engine import adopt_best, score_cells, simulate
 from spatial_ipd.judgments import (
@@ -30,6 +32,8 @@ from spatial_ipd.think import (
     patch3,
     register_holds,
     resolve_strategy,
+    is_cooperate_to_defect,
+    resist_indices_for_seats,
     should_resist,
     should_think,
     simulate_with_thinkers,
@@ -186,6 +190,25 @@ def test_d_to_c_cannot_resist():
     decisions = decisions_from_response(((0, 0),), before, after, _response([("hold", 0.99, 0.99)]), generation=2)
     assert decisions[0].applied is False
     assert decisions[0].after_think == C
+
+
+def test_resist_indices_only_c_to_d():
+    before = [[C, D], [C, C]]
+    after = [[D, C], [C, D]]
+    seats = ((0, 0), (0, 1), (1, 0), (1, 1))
+    assert is_cooperate_to_defect(C, D) is True
+    assert is_cooperate_to_defect(D, C) is False
+    assert resist_indices_for_seats(seats, before, after) == (0, 3)
+
+
+def test_missing_resist_noul_is_not_asked():
+    before = [[D]]
+    after = [[C]]
+    response = _response([("imitate", 0.9, 0.9)])
+    del response.nouls["resist_0"]
+    decisions = decisions_from_response(((0, 0),), before, after, response, generation=2)
+    assert decisions[0].applied is False
+    assert "resist=n/a" in format_decision_line(decisions[0])
 
 
 def test_think_every_zero_matches_engine_golden():
@@ -444,6 +467,7 @@ def test_format_decision_line_includes_act():
     assert line.startswith("gen=5 row=1 col=2 act=hold")
     assert "applied=yes" in line
     assert "resist=0.4" in line
+    assert "resist=n/a" not in line
     assert "conf=" not in line
     assert "focal_score=21" in line
     assert "best_neighbor_score=40" in line
@@ -530,3 +554,14 @@ def test_winning_imitate_matches_adopt_best():
     tied = [[C, D], [D, C]]
     even = [[9, 9], [9, 9]]
     assert winning_imitate(tied, even, 0, 0) == (9, C)
+
+
+def test_thinker_questions_omit_resist_unless_c_to_d():
+    pytest.importorskip("typesafe_sdk")
+    from spatial_ipd.judgments import typesafe_thinker_questions
+
+    qs = typesafe_thinker_questions(2, resist_indices=(0,))
+    assert "resist_0" in qs
+    assert "resist_1" not in qs
+    assert "worth_thinking_1" in qs
+    assert "cluster_fragility_1" in qs

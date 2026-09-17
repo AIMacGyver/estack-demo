@@ -180,10 +180,27 @@ def resolve_strategy(before: int, after_imitate: int, act: str) -> int:
 def should_resist(worth_thinking: float, resist: float, before: int, after_imitate: int) -> bool:
     """Hold only on a C→D copy when worth and resist nouls clear the gate."""
     return (
-        int(before) == COOPERATE
-        and int(after_imitate) == DEFECT
+        is_cooperate_to_defect(before, after_imitate)
         and worth_thinking >= WORTH_THINKING_THRESHOLD
         and resist >= RESIST_YES_THRESHOLD
+    )
+
+
+def is_cooperate_to_defect(before: int, after_imitate: int) -> bool:
+    """True when imitation just turned a cooperator into a defector."""
+    return int(before) == COOPERATE and int(after_imitate) == DEFECT
+
+
+def resist_indices_for_seats(
+    seats: Sequence[tuple[int, int]],
+    before: Grid,
+    after: Grid,
+) -> tuple[int, ...]:
+    """Thinker indexes that are real C→D copies (the only seats that get resist)."""
+    return tuple(
+        i
+        for i, (row, col) in enumerate(seats)
+        if is_cooperate_to_defect(before[row][col], after[row][col])
     )
 
 
@@ -239,7 +256,8 @@ def decisions_from_response(
     out: list[ThinkerDecision] = []
     for i, (row, col) in enumerate(seats):
         worth = float(response.nouls[f"worth_thinking_{i}"].noul)
-        resist = float(response.nouls[f"resist_{i}"].noul)
+        resist_key = f"resist_{i}"
+        resist = float(response.nouls[resist_key].noul) if resist_key in response.nouls else 0.0
         pre = int(before[row][col])
         mid = int(after[row][col])
         applied = should_resist(worth, resist, pre, mid)
@@ -341,7 +359,14 @@ def think_after_step(
         return _copy_grid(after), tally
 
     state = state_for_thinkers(before, after, seats, generation)
-    qs = typesafe_thinker_questions(len(seats)) if questions is None else questions
+    qs = (
+        typesafe_thinker_questions(
+            len(seats),
+            resist_indices=resist_indices_for_seats(seats, before, after),
+        )
+        if questions is None
+        else questions
+    )
     if client is None:
         try:
             from typesafe_sdk import TypeSafeClient
@@ -474,9 +499,14 @@ def format_compare_summary(plain: SimulationResult, think: SimulationResult, sta
 def format_decision_line(item: ThinkerDecision) -> str:
     """One inspectable line for a single thinker seat."""
     applied = "yes" if item.applied else "no"
+    resist = (
+        f"resist={item.act_confidence}"
+        if is_cooperate_to_defect(item.before, item.after_imitate)
+        else "resist=n/a"
+    )
     return (
         f"gen={item.generation} row={item.row} col={item.col} "
-        f"act={item.act} worth={item.worth_thinking} resist={item.act_confidence} "
+        f"act={item.act} worth={item.worth_thinking} {resist} "
         f"focal_score={item.focal_score} best_neighbor_score={item.best_neighbor_score} "
         f"best_neighbor_strategy={item.best_neighbor_strategy} "
         f"applied={applied} before={item.before} after_imitate={item.after_imitate} "

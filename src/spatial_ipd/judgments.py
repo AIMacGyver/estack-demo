@@ -6,6 +6,8 @@ calls TypeSafe; `label.py` and `think.py` send these after code has numbers.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 # Noul above this is treated as "cooperation still meaningfully present".
 # Golden 12x12 seed 20260316 scored 0.17; all-C no-mutation scored 0.99.
 COOPERATION_SURVIVED_YES_THRESHOLD = 0.5
@@ -128,14 +130,15 @@ def typesafe_questions():
     }
 
 
-def typesafe_thinker_questions(count: int) -> dict:
-    """One worth/resist/fragility triple per thinker, same state, one API call."""
+def typesafe_thinker_questions(count: int, resist_indices: Sequence[int] | None = None) -> dict:
+    """Worth and fragility for every seat; resist Noul only for C→D seats."""
     if count < 1:
         return {}
     try:
         from typesafe_sdk import Noul, Score
     except ImportError as exc:
         raise ImportError('TypeSafe is optional. Install with: python3 -m pip install -e ".[typesafe]"') from exc
+    ask_resist = set(range(count) if resist_indices is None else (int(i) for i in resist_indices))
     questions = {}
     for i in range(count):
         questions[f"worth_thinking_{i}"] = Noul(
@@ -145,10 +148,11 @@ def typesafe_thinker_questions(count: int) -> dict:
                 "false": THINKER_WORTH_CRITERIA["false"],
             },
         )
-        questions[f"resist_{i}"] = Noul(
-            instructions=THINKER_RESIST_INSTRUCTIONS.format(i=i),
-            criteria=THINKER_RESIST_CRITERIA,
-        )
+        if i in ask_resist:
+            questions[f"resist_{i}"] = Noul(
+                instructions=THINKER_RESIST_INSTRUCTIONS.format(i=i),
+                criteria=THINKER_RESIST_CRITERIA,
+            )
         questions[f"cluster_fragility_{i}"] = Score(
             instructions=THINKER_FRAGILITY_INSTRUCTIONS.format(i=i),
             criteria=THINKER_FRAGILITY_LEVELS,
