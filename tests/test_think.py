@@ -12,8 +12,10 @@ from spatial_ipd.payoffs import DEFECT as D
 from spatial_ipd.think import (
     SEAT_FRONTIER,
     SEAT_RANDOM,
+    StickySeat,
     ThinkerDecision,
     apply_decisions,
+    apply_sticky,
     choose_seats,
     decisions_from_response,
     format_compare_summary,
@@ -23,6 +25,7 @@ from spatial_ipd.think import (
     frontier_seats,
     main,
     patch3,
+    register_holds,
     resolve_strategy,
     should_apply,
     should_think,
@@ -176,10 +179,59 @@ def test_low_confidence_does_not_override():
 def test_think_every_zero_matches_engine_golden():
     kwargs = dict(height=12, width=12, generations=30, seed=20260316, mutation_rate=0.02)
     plain = simulate(**kwargs)
-    with_off, stats = simulate_with_thinkers(**kwargs, think_every=0, think_last=5)
+    with_off, stats = simulate_with_thinkers(**kwargs, think_every=0, think_last=5, sticky=5)
     assert with_off.cooperation_rates == plain.cooperation_rates
     assert with_off.final_cooperation_rate == 2 / 144
     assert stats.calls == 0
+
+
+def test_register_and_apply_sticky():
+    decision = ThinkerDecision(
+        generation=10,
+        row=0,
+        col=0,
+        act="hold",
+        worth_thinking=0.9,
+        act_confidence=0.4,
+        applied=True,
+        before=C,
+        after_imitate=D,
+        after_think=C,
+    )
+    book = register_holds((), (decision,), generation=10, sticky=5)
+    assert book == (StickySeat(row=0, col=0, strategy=C, until_generation=15),)
+    restored, kept = apply_sticky([[D]], book, generation=12)
+    assert restored == [[C]]
+    assert kept == book
+    expired, empty = apply_sticky([[D]], book, generation=16)
+    assert expired == [[D]]
+    assert empty == ()
+    assert register_holds((), (decision,), generation=10, sticky=0) == ()
+
+
+def test_sticky_hold_survives_later_forced_defect(monkeypatch):
+    def always_defect(grid, rng=None, mutation_rate=0.0):
+        return [[D for _ in row] for row in grid]
+
+    monkeypatch.setattr("spatial_ipd.think.step", always_defect)
+    client = FakeClient(_response([("hold", 0.96, 0.4)]))
+    questions = {"placeholder": object()}
+    kwargs = dict(
+        height=1,
+        width=1,
+        generations=5,
+        seed=1,
+        cooperate_p=1.0,
+        think_every=3,
+        think_last=0,
+        thinker_count=1,
+        client=client,
+        questions=questions,
+    )
+    sticky, _ = simulate_with_thinkers(**kwargs, sticky=2)
+    oneshot, _ = simulate_with_thinkers(**kwargs, sticky=0)
+    assert sticky.grid[0][0] == C
+    assert oneshot.grid[0][0] == D
 
 
 def test_should_think_last_n_without_double_counting():

@@ -49,6 +49,16 @@ class ThinkerDecision:
     after_think: int
 
 
+@dataclass(frozen=True)
+class StickySeat:
+    """A held cell that resists imitation until ``until_generation``."""
+
+    row: int
+    col: int
+    strategy: int
+    until_generation: int
+
+
 @dataclass
 class ThinkerStats:
     """Counters and the last thinker's seats for a run."""
@@ -233,6 +243,42 @@ def apply_decisions(grid: Grid, decisions: Sequence[ThinkerDecision]) -> Grid:
     return nxt
 
 
+def register_holds(
+    book: tuple[StickySeat, ...],
+    decisions: Sequence[ThinkerDecision],
+    generation: int,
+    sticky: int,
+) -> tuple[StickySeat, ...]:
+    """Remember applied holds so later ``step`` calls can restore them."""
+    if sticky < 1:
+        return book
+    by_cell = {(seat.row, seat.col): seat for seat in book}
+    for item in decisions:
+        if item.applied and item.act == "hold":
+            by_cell[(item.row, item.col)] = StickySeat(
+                row=item.row,
+                col=item.col,
+                strategy=item.after_think,
+                until_generation=generation + sticky,
+            )
+    return tuple(by_cell.values())
+
+
+def apply_sticky(
+    grid: Grid,
+    book: tuple[StickySeat, ...],
+    generation: int,
+) -> tuple[Grid, tuple[StickySeat, ...]]:
+    """Restore still-live holds after imitation; drop expired seats."""
+    nxt = _copy_grid(grid)
+    kept: list[StickySeat] = []
+    for seat in book:
+        if generation <= seat.until_generation:
+            nxt[seat.row][seat.col] = seat.strategy
+            kept.append(seat)
+    return nxt, tuple(kept)
+
+
 def think_after_step(
     before: Grid,
     after: Grid,
@@ -308,6 +354,7 @@ def simulate_with_thinkers(
     cooperate_p: float = 0.5,
     think_every: int = 5,
     think_last: int = 5,
+    sticky: int = 5,
     thinker_count: int = 4,
     client: object | None = None,
     questions: dict | None = None,
@@ -317,11 +364,14 @@ def simulate_with_thinkers(
 
     ``think_every=0`` is exactly ``simulate`` (no API calls).
     ``think_last`` also thinks on every generation in the last M (deduped).
+    ``sticky`` keeps an applied hold for that many later generations.
     """
     if think_every < 0:
         raise ValueError("think_every must be non-negative")
     if think_last < 0:
         raise ValueError("think_last must be non-negative")
+    if sticky < 0:
+        raise ValueError("sticky must be non-negative")
     if think_every == 0:
         return (
             simulate(
@@ -339,9 +389,11 @@ def simulate_with_thinkers(
     grid = random_grid(height, width, seed=seed, cooperate_p=cooperate_p)
     rates = [cooperation_rate(grid)]
     stats = ThinkerStats()
+    book: tuple[StickySeat, ...] = ()
     for generation in range(1, generations + 1):
         before = _copy_grid(grid)
         grid = step(grid, rng=rng, mutation_rate=mutation_rate)
+        grid, book = apply_sticky(grid, book, generation)
         if should_think(generation, generations, think_every, think_last):
             grid, stats = think_after_step(
                 before,
@@ -354,6 +406,7 @@ def simulate_with_thinkers(
                 stats=stats,
                 seat_mode=seat_mode,
             )
+            book = register_holds(book, stats.last_decisions, generation, sticky)
         rates.append(cooperation_rate(grid))
     frozen = tuple(tuple(int(cell) for cell in row) for row in grid)
     result = SimulationResult(
@@ -419,6 +472,12 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         default=5,
         help="Also think every generation in the last N (Jev pick). 0 = only --think-every.",
     )
+    parser.add_argument(
+        "--sticky",
+        type=int,
+        default=5,
+        help="Keep an applied hold for N later gens (Jev pick). 0 = one-shot hold.",
+    )
     parser.add_argument("--thinkers", type=int, default=4)
     parser.add_argument(
         "--seats",
@@ -459,6 +518,7 @@ def main(
         **kwargs,
         think_every=args.think_every,
         think_last=args.think_last,
+        sticky=args.sticky,
         thinker_count=args.thinkers,
         client=client,
         questions=questions,
