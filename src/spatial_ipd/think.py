@@ -289,6 +289,15 @@ def think_after_step(
     return apply_decisions(after, decisions), tally
 
 
+def should_think(generation: int, generations: int, think_every: int, think_last: int) -> bool:
+    """True when this generation gets a Jev pass (every N, plus the last M)."""
+    if think_every < 1 or generation < 1:
+        return False
+    if generation % think_every == 0:
+        return True
+    return think_last > 0 and generation > generations - think_last
+
+
 def simulate_with_thinkers(
     height: int,
     width: int,
@@ -298,6 +307,7 @@ def simulate_with_thinkers(
     mutation_rate: float = 0.0,
     cooperate_p: float = 0.5,
     think_every: int = 5,
+    think_last: int = 5,
     thinker_count: int = 4,
     client: object | None = None,
     questions: dict | None = None,
@@ -306,9 +316,12 @@ def simulate_with_thinkers(
     """Like ``simulate``, plus optional Jev overrides every ``think_every`` gens.
 
     ``think_every=0`` is exactly ``simulate`` (no API calls).
+    ``think_last`` also thinks on every generation in the last M (deduped).
     """
     if think_every < 0:
         raise ValueError("think_every must be non-negative")
+    if think_last < 0:
+        raise ValueError("think_last must be non-negative")
     if think_every == 0:
         return (
             simulate(
@@ -329,7 +342,7 @@ def simulate_with_thinkers(
     for generation in range(1, generations + 1):
         before = _copy_grid(grid)
         grid = step(grid, rng=rng, mutation_rate=mutation_rate)
-        if generation % think_every == 0:
+        if should_think(generation, generations, think_every, think_last):
             grid, stats = think_after_step(
                 before,
                 grid,
@@ -400,6 +413,12 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--seed", type=int, required=True)
     parser.add_argument("--mutation-rate", type=float, default=0.0)
     parser.add_argument("--think-every", type=int, default=5)
+    parser.add_argument(
+        "--think-last",
+        type=int,
+        default=5,
+        help="Also think every generation in the last N (Jev pick). 0 = only --think-every.",
+    )
     parser.add_argument("--thinkers", type=int, default=4)
     parser.add_argument(
         "--seats",
@@ -439,6 +458,7 @@ def main(
     result, stats = simulate_with_thinkers(
         **kwargs,
         think_every=args.think_every,
+        think_last=args.think_last,
         thinker_count=args.thinkers,
         client=client,
         questions=questions,

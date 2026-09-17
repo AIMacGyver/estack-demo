@@ -25,6 +25,7 @@ from spatial_ipd.think import (
     patch3,
     resolve_strategy,
     should_apply,
+    should_think,
     simulate_with_thinkers,
     state_for_thinkers,
     think_after_step,
@@ -175,10 +176,56 @@ def test_low_confidence_does_not_override():
 def test_think_every_zero_matches_engine_golden():
     kwargs = dict(height=12, width=12, generations=30, seed=20260316, mutation_rate=0.02)
     plain = simulate(**kwargs)
-    with_off, stats = simulate_with_thinkers(**kwargs, think_every=0)
+    with_off, stats = simulate_with_thinkers(**kwargs, think_every=0, think_last=5)
     assert with_off.cooperation_rates == plain.cooperation_rates
     assert with_off.final_cooperation_rate == 2 / 144
     assert stats.calls == 0
+
+
+def test_should_think_last_n_without_double_counting():
+    assert should_think(5, 30, think_every=5, think_last=0) is True
+    assert should_think(26, 30, think_every=5, think_last=0) is False
+    assert should_think(26, 30, think_every=5, think_last=5) is True
+    assert should_think(30, 30, think_every=5, think_last=5) is True
+    assert should_think(25, 30, think_every=5, think_last=5) is True
+    gens = [g for g in range(1, 31) if should_think(g, 30, 5, 5)]
+    assert gens == [5, 10, 15, 20, 25, 26, 27, 28, 29, 30]
+
+
+def test_think_last_zero_keeps_periodic_schedule():
+    client = FakeClient(_response([("imitate", 0.2, 0.8)]))
+    questions = {"placeholder": object()}
+    _, stats = simulate_with_thinkers(
+        3,
+        3,
+        8,
+        seed=1,
+        think_every=4,
+        think_last=0,
+        thinker_count=1,
+        client=client,
+        questions=questions,
+    )
+    assert stats.calls == 2
+    assert [item.generation for item in stats.all_decisions] == [4, 8]
+
+
+def test_think_last_adds_late_generations():
+    client = FakeClient(_response([("imitate", 0.2, 0.8)]))
+    questions = {"placeholder": object()}
+    _, stats = simulate_with_thinkers(
+        3,
+        3,
+        8,
+        seed=1,
+        think_every=4,
+        think_last=3,
+        thinker_count=1,
+        client=client,
+        questions=questions,
+    )
+    assert [item.generation for item in stats.all_decisions] == [4, 6, 7, 8]
+    assert stats.calls == 4
 
 
 def test_think_after_step_uses_injected_client():
@@ -248,6 +295,8 @@ def test_compare_and_verbose_cli(capsys):
             "1",
             "--seats",
             "frontier",
+            "--think-last",
+            "0",
             "--compare",
             "--verbose",
         ],
@@ -283,6 +332,8 @@ def test_cli_seats_random_uses_uniform_seats():
             "1",
             "--seats",
             "random",
+            "--think-last",
+            "0",
         ],
         client=client,
         questions=questions,
