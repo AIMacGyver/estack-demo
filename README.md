@@ -46,6 +46,19 @@ Each cell is Cooperate (`C = 1`) or Defect (`D = 0`). Every generation the cell 
 
 `T = 5`, `R = 3`, `P = 1`, `S = 0`. `simulate` and `step` are deterministic for a fixed seed, size, mutation rate, and generation count.
 
+## Optional TypeSafe labels
+
+After a run, [TypeSafe](https://docs.typesafe.ai) (Jev) can label the cooperation-rate *shape*. It does not change payoffs or update rules. Needs `TYPESAFE_API_KEY` (env var or a local `.env`, which is gitignored).
+
+```bash
+python3 -m pip install -e ".[typesafe]"
+python3 -m spatial_ipd.label \
+  --height 12 --width 12 --generations 30 \
+  --seed 20260316 --mutation-rate 0.02
+```
+
+Questions and the survival threshold live in `src/spatial_ipd/judgments.py`.
+
 ```python
 from spatial_ipd import simulate
 
