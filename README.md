@@ -69,13 +69,15 @@ Questions and the survival threshold live in `src/spatial_ipd/judgments.py`.
 
 ## Optional Jev thinkers
 
-Most cells still imitate. Every `--think-every` generations, a few seats ask Jev whether to **hold** (resist a copy) or **flip**. Default `--seats frontier` prefers cells that just changed, then C/D edges. Default `--think-last 5` also thinks on every generation in the last five so a late hold can still show up in `--compare` (Jev’s pick after frontier holds washed out). `--seats random` and `--think-last 0` keep the older schedule. Payoffs and the default `simulate()` golden do not change. Needs `TYPESAFE_API_KEY`.
+Most cells still imitate. Every `--think-every` generations, a few seats ask Jev whether to **hold** (resist a copy) or **flip**. Default `--seats frontier` prefers cells that just changed, then C/D edges. Default `--think-last 5` also thinks on every generation in the last five so a late hold can still show up in `--compare`. `--seats random` and `--think-last 0` keep the older schedule. Payoffs and the default `simulate()` golden do not change. Needs `TYPESAFE_API_KEY`.
+
+The engine golden is still seed `20260316` (export / `think_every=0`). The thinker demo uses seed `1`: a live `--compare` on this command produced `plain_final=0.01171875` `think_final=0.015625` `delta=0.00390625` (`holds=3`). Seed `20260316` with the same flags stayed `delta=0`.
 
 ```bash
 uv sync --extra typesafe
 uv run python -m spatial_ipd.think \
   --height 16 --width 16 --generations 30 \
-  --seed 20260316 --mutation-rate 0.02 \
+  --seed 1 --mutation-rate 0.02 \
   --think-every 5 --think-last 5 --thinkers 4 \
   --seats frontier --compare --verbose
 ```
