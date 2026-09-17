@@ -4,9 +4,9 @@ A small **Spatial Iterated Prisoner's Dilemma** engine (Nowak & May 1992): coope
 
 **Share / clone:** [github.com/aimacgyver/estack-demo](https://github.com/aimacgyver/estack-demo)
 
-We're experimenting with [TypeSafe](https://docs.typesafe.ai) (Jev) as a System 1 judge *inside* the game: typed snap decisions (regime, hold/flip) that code can use. Jev does not replace payoffs or `simulate()`.
+**How we build:** [Estack](https://x.ai/bot/R0acF6Pmp8YewSZm6fA-D) for plan → execute → ship (small scope, prove with pytest). [TypeSafe](https://docs.typesafe.ai) (Jev) for snap decisions — after a run (regime / survived?) and *inside* the game (thinker hold/flip). Jev does not replace payoffs or `simulate()`.
 
-**Grok Bot template:** [share or add a Grok Bot](https://x.ai/bot/guides/templates-for-grok-bot) — recipe, not a clone of anyone's chats.
+**Estack Grok Bot template:** [add the Estack bot](https://x.ai/bot/R0acF6Pmp8YewSZm6fA-D) — a recipe, not our chats or API keys.
 
 ## Try it
 
