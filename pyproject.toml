@@ -13,6 +13,7 @@ license = { text = "MIT" }
 [project.optional-dependencies]
 dev = ["pytest>=8"]
 viewer = ["pygame>=2.5"]
+typesafe = ["typesafe-sdk>=0.6"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
