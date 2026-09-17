@@ -15,10 +15,12 @@ from random import Random
 
 from spatial_ipd.engine import cooperation_rate, random_grid, step
 from spatial_ipd.payoffs import COOPERATE
+from spatial_ipd.think import think_after_step
 
 # Blue = Cooperate, red = Defect. RGB tuples, no pygame required.
 COLOR_COOPERATE = (40, 90, 220)
 COLOR_DEFECT = (200, 40, 40)
+COLOR_THINKER_OUTLINE = (240, 200, 40)
 
 
 @dataclass(frozen=True)
@@ -31,6 +33,8 @@ class ViewerConfig:
     mutation_rate: float = 0.01
     cell_size: int = 12
     fps: int = 8
+    think_every: int = 0
+    thinkers: int = 4
 
 
 def cell_color(strategy: int) -> tuple[int, int, int]:
@@ -53,6 +57,10 @@ def validate_config(config: ViewerConfig) -> ViewerConfig:
         raise ValueError("fps must be positive")
     if config.mutation_rate < 0 or config.mutation_rate > 1:
         raise ValueError("mutation-rate must be in [0, 1]")
+    if config.think_every < 0:
+        raise ValueError("think-every must be non-negative")
+    if config.thinkers < 0:
+        raise ValueError("thinkers must be non-negative")
     return config
 
 
@@ -74,6 +82,8 @@ def parse_args(argv: list[str] | None = None) -> ViewerConfig:
     )
     parser.add_argument("--cell-size", type=int, default=defaults.cell_size, dest="cell_size")
     parser.add_argument("--fps", type=int, default=defaults.fps)
+    parser.add_argument("--think-every", type=int, default=defaults.think_every, dest="think_every")
+    parser.add_argument("--thinkers", type=int, default=defaults.thinkers)
     ns = parser.parse_args(argv)
     return validate_config(
         ViewerConfig(
@@ -83,6 +93,8 @@ def parse_args(argv: list[str] | None = None) -> ViewerConfig:
             mutation_rate=ns.mutation_rate,
             cell_size=ns.cell_size,
             fps=ns.fps,
+            think_every=ns.think_every,
+            thinkers=ns.thinkers,
         )
     )
 
@@ -96,10 +108,16 @@ def new_run(height: int, width: int, seed: int) -> tuple[list[list[int]], Random
     return random_grid(height, width, seed=seed), Random(seed)
 
 
-def window_caption(generation: int, grid: list[list[int]]) -> str:
+def window_caption(
+    generation: int,
+    grid: list[list[int]],
+    *,
+    thinker_count: int = 0,
+) -> str:
     """Status line for the window title."""
     rate = cooperation_rate(grid)
-    return f"Spatial IPD  gen={generation}  C={rate:.3f}"
+    extra = f"  thinkers={thinker_count}" if thinker_count else ""
+    return f"Spatial IPD  gen={generation}  C={rate:.3f}{extra}"
 
 
 def import_pygame():
@@ -113,15 +131,21 @@ def import_pygame():
     return pygame
 
 
-def _draw_grid(pygame, screen, grid: list[list[int]], cell_size: int) -> None:
+def _draw_grid(
+    pygame,
+    screen,
+    grid: list[list[int]],
+    cell_size: int,
+    thinker_seats: set[tuple[int, int]] | None = None,
+) -> None:
     """Paint the same RGB frame ``color_frame`` builds as cell-sized squares."""
+    seats = thinker_seats or set()
     for r, row in enumerate(color_frame(grid)):
         for c, color in enumerate(row):
-            pygame.draw.rect(
-                screen,
-                color,
-                (c * cell_size, r * cell_size, cell_size, cell_size),
-            )
+            rect = (c * cell_size, r * cell_size, cell_size, cell_size)
+            pygame.draw.rect(screen, color, rect)
+            if (r, c) in seats:
+                pygame.draw.rect(screen, COLOR_THINKER_OUTLINE, rect, max(1, cell_size // 6))
 
 
 def run(config: ViewerConfig) -> None:
@@ -131,6 +155,10 @@ def run(config: ViewerConfig) -> None:
     Keys: space pause, r reset (same seed), q or Esc quit.
     """
     config = validate_config(config)
+    if config.think_every:
+        from spatial_ipd.label import load_dotenv
+
+        load_dotenv()
     pygame = import_pygame()
     pygame.init()
     try:
@@ -142,6 +170,7 @@ def run(config: ViewerConfig) -> None:
         generation = 0
         paused = False
         running = True
+        seats: set[tuple[int, int]] = set()
         while running:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -154,13 +183,28 @@ def run(config: ViewerConfig) -> None:
                     elif event.key == pygame.K_r:
                         grid, rng = new_run(config.height, config.width, config.seed)
                         generation = 0
-            pygame.display.set_caption(window_caption(generation, grid))
-            _draw_grid(pygame, screen, grid, config.cell_size)
+                        seats = set()
+            pygame.display.set_caption(
+                window_caption(generation, grid, thinker_count=len(seats))
+            )
+            _draw_grid(pygame, screen, grid, config.cell_size, seats)
             pygame.display.flip()
             clock.tick(config.fps)
             if not paused:
+                before = [row[:] for row in grid]
                 grid = step(grid, rng=rng, mutation_rate=config.mutation_rate)
                 generation += 1
+                if config.think_every and generation % config.think_every == 0:
+                    grid, stats = think_after_step(
+                        before,
+                        grid,
+                        generation=generation,
+                        seed=config.seed,
+                        thinker_count=config.thinkers,
+                    )
+                    seats = set(stats.last_seats)
+                else:
+                    seats = set()
     finally:
         pygame.quit()
 

@@ -57,6 +57,10 @@ def test_parse_args_overrides():
             "4",
             "--fps",
             "3",
+            "--think-every",
+            "5",
+            "--thinkers",
+            "2",
         ]
     )
     assert config == ViewerConfig(
@@ -66,6 +70,8 @@ def test_parse_args_overrides():
         mutation_rate=0.25,
         cell_size=4,
         fps=3,
+        think_every=5,
+        thinkers=2,
     )
 
 
@@ -82,6 +88,8 @@ def test_validate_config_rejects_bad_values():
         validate_config(ViewerConfig(mutation_rate=-0.1))
     with pytest.raises(ValueError):
         validate_config(ViewerConfig(mutation_rate=1.1))
+    with pytest.raises(ValueError):
+        validate_config(ViewerConfig(think_every=-1))
 
 
 def test_new_run_uses_engine_random_grid_and_does_not_reimplement_pd():
@@ -99,6 +107,8 @@ def test_window_caption_includes_generation_and_rate():
     caption = window_caption(4, grid)
     assert "gen=4" in caption
     assert "C=0.250" in caption
+    assert "thinkers=" not in caption
+    assert "thinkers=2" in window_caption(4, grid, thinker_count=2)
 
 
 def test_importing_viewer_helpers_does_not_load_pygame():
