@@ -2,6 +2,8 @@
 
 A small **Spatial Iterated Prisoner's Dilemma** engine (Nowak & May 1992): cooperation evolving on a 2-D lattice. This repo is an Estack dry-run demo — clone it, run the tests, export a cooperation-rate CSV, optionally open a Pygame window. The engine is stdlib-only; pygame is an optional extra.
 
+**Share / clone:** [github.com/aimacgyver/estack-demo](https://github.com/aimacgyver/estack-demo)
+
 ## Try it
 
 Python 3.12+ and [uv](https://docs.astral.sh/uv/). From a clone of this repo:
