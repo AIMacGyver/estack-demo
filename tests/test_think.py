@@ -17,6 +17,7 @@ from spatial_ipd.payoffs import DEFECT as D
 from spatial_ipd.think import (
     SEAT_FRONTIER,
     SEAT_RANDOM,
+    RandomThinkerClient,
     StickySeat,
     ThinkerDecision,
     apply_decisions,
@@ -39,6 +40,7 @@ from spatial_ipd.think import (
     simulate_with_thinkers,
     state_for_thinkers,
     think_after_step,
+    thinker_question_ids,
     thinker_seats,
     winning_imitate,
 )
@@ -565,3 +567,100 @@ def test_thinker_questions_omit_resist_unless_c_to_d():
     assert "resist_1" not in qs
     assert "worth_thinking_1" in qs
     assert "cluster_fragility_1" in qs
+
+
+def test_thinker_question_ids_omit_resist():
+    keys = thinker_question_ids(2, (0,))
+    assert "resist_0" in keys
+    assert "resist_1" not in keys
+    assert "worth_thinking_1" in keys
+
+
+def test_random_client_is_seeded_and_bounded():
+    qs = thinker_question_ids(2, (0,))
+    a = RandomThinkerClient(7).system_one({}, qs)
+    b = RandomThinkerClient(7).system_one({}, qs)
+    assert a.nouls["worth_thinking_0"].noul == b.nouls["worth_thinking_0"].noul
+    assert a.nouls["resist_0"].noul == b.nouls["resist_0"].noul
+    assert "resist_1" not in a.nouls
+    assert 0.0 <= a.nouls["resist_0"].noul < 1.0
+    other = RandomThinkerClient(8).system_one({}, qs)
+    assert other.nouls["resist_0"].noul != a.nouls["resist_0"].noul
+
+
+def test_random_backend_run_is_deterministic():
+    kwargs = dict(
+        height=8,
+        width=8,
+        generations=10,
+        seed=1,
+        mutation_rate=0.02,
+        think_every=5,
+        think_last=0,
+        sticky=0,
+        thinker_count=2,
+    )
+    first, first_stats = simulate_with_thinkers(**kwargs, client=RandomThinkerClient(1))
+    second, second_stats = simulate_with_thinkers(**kwargs, client=RandomThinkerClient(1))
+    assert first.cooperation_rates == second.cooperation_rates
+    assert first_stats.holds == second_stats.holds
+    assert first_stats.calls == 2
+
+
+def test_cli_backend_random_needs_no_typesafe(capsys):
+    code = main(
+        [
+            "--height",
+            "8",
+            "--width",
+            "8",
+            "--generations",
+            "6",
+            "--seed",
+            "1",
+            "--mutation-rate",
+            "0.02",
+            "--think-every",
+            "3",
+            "--think-last",
+            "0",
+            "--sticky",
+            "0",
+            "--thinkers",
+            "2",
+            "--seats",
+            "frontier",
+            "--backend",
+            "random",
+            "--compare",
+        ]
+    )
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "plain_final=" in out
+    assert "delta=" in out
+
+
+def test_cli_backend_random_think_every_zero_keeps_golden(capsys):
+    code = main(
+        [
+            "--height",
+            "12",
+            "--width",
+            "12",
+            "--generations",
+            "30",
+            "--seed",
+            "20260316",
+            "--mutation-rate",
+            "0.02",
+            "--think-every",
+            "0",
+            "--backend",
+            "random",
+        ]
+    )
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "think_calls=0" in out
+    assert "final_cooperation_rate=0.013888888888888888" in out

@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import argparse
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from random import Random
+from types import SimpleNamespace
 
 from spatial_ipd.engine import (
     Grid,
@@ -28,6 +29,9 @@ from spatial_ipd.payoffs import COOPERATE, DEFECT
 SEAT_RANDOM = "random"
 SEAT_FRONTIER = "frontier"
 SEAT_MODES = (SEAT_RANDOM, SEAT_FRONTIER)
+BACKEND_JEV = "jev"
+BACKEND_RANDOM = "random"
+BACKENDS = (BACKEND_JEV, BACKEND_RANDOM)
 
 
 def _copy_grid(grid: Grid) -> Grid:
@@ -189,6 +193,42 @@ def should_resist(worth_thinking: float, resist: float, before: int, after_imita
 def is_cooperate_to_defect(before: int, after_imitate: int) -> bool:
     """True when imitation just turned a cooperator into a defector."""
     return int(before) == COOPERATE and int(after_imitate) == DEFECT
+
+
+class RandomThinkerClient:
+    """Seeded Uniform[0, 1] stand-in for worth/resist. No TypeSafe import."""
+
+    uses_sdk_questions = False
+
+    def __init__(self, seed: int):
+        """Bind a ``random.Random`` stream to ``seed``."""
+        self._rng = Random(seed)
+
+    def system_one(self, state: object, questions: Mapping[str, object]) -> SimpleNamespace:
+        """Draw one noul per worth/resist key; ignore unused fragility keys."""
+        del state
+        nouls = {}
+        scores = {}
+        for key in questions:
+            if key.startswith("worth_thinking_") or key.startswith("resist_"):
+                nouls[key] = SimpleNamespace(noul=self._rng.random())
+            elif key.startswith("cluster_fragility_"):
+                scores[key] = SimpleNamespace(score=self._rng.uniform(0, 2), confidence=0.5)
+        return SimpleNamespace(nouls=nouls, scores=scores, choices={})
+
+
+def thinker_question_ids(count: int, resist_indices: Sequence[int]) -> dict[str, None]:
+    """Question keys only, so a random backend does not need typesafe_sdk."""
+    if count < 1:
+        return {}
+    ask_resist = {int(i) for i in resist_indices}
+    keys: dict[str, None] = {}
+    for i in range(count):
+        keys[f"worth_thinking_{i}"] = None
+        if i in ask_resist:
+            keys[f"resist_{i}"] = None
+        keys[f"cluster_fragility_{i}"] = None
+    return keys
 
 
 def resist_indices_for_seats(
@@ -359,14 +399,14 @@ def think_after_step(
         return _copy_grid(after), tally
 
     state = state_for_thinkers(before, after, seats, generation)
-    qs = (
-        typesafe_thinker_questions(
-            len(seats),
-            resist_indices=resist_indices_for_seats(seats, before, after),
-        )
-        if questions is None
-        else questions
-    )
+    resist_ix = resist_indices_for_seats(seats, before, after)
+    if questions is None:
+        if client is not None and not getattr(client, "uses_sdk_questions", True):
+            qs = thinker_question_ids(len(seats), resist_ix)
+        else:
+            qs = typesafe_thinker_questions(len(seats), resist_indices=resist_ix)
+    else:
+        qs = questions
     if client is None:
         try:
             from typesafe_sdk import TypeSafeClient
@@ -558,6 +598,12 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Print one line per thinker seat (act, worth, resist noul, imitate scores, applied).",
     )
+    parser.add_argument(
+        "--backend",
+        choices=BACKENDS,
+        default=BACKEND_JEV,
+        help="jev = TypeSafe (needs TYPESAFE_API_KEY); random = seeded Uniform[0,1] control.",
+    )
     return parser.parse_args(argv)
 
 
@@ -570,6 +616,8 @@ def main(
     """Run Spatial IPD with optional Jev thinker overrides."""
     load_dotenv()
     args = parse_args(argv)
+    if client is None and args.backend == BACKEND_RANDOM:
+        client = RandomThinkerClient(seed=args.seed)
     kwargs = dict(
         height=args.height,
         width=args.width,

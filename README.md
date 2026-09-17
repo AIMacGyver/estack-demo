@@ -84,6 +84,16 @@ uv run python -m spatial_ipd.think \
 
 `--compare` prints plain `simulate()` vs the thinker run. `--verbose` prints each seat’s act, worth, resist noul (`n/a` when the seat was not C→D), and the imitate scores Jev saw.
 
+`--backend random` is a seeded Uniform[0, 1] control for worth/resist (same seats and 0.6 gate, no API key). Default `--backend jev` is unchanged.
+
+```bash
+uv run python -m spatial_ipd.think \
+  --height 16 --width 16 --generations 30 \
+  --seed 1 --mutation-rate 0.02 \
+  --think-every 5 --think-last 5 --sticky 5 --thinkers 4 \
+  --seats frontier --backend random --compare --verbose
+```
+
 Viewer outlines thinker seats in gold when `--think-every` is set (`--seats` works there too).
 
 ```python
