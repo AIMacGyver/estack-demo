@@ -4,14 +4,33 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass
+from pathlib import Path
 
 from spatial_ipd.engine import SimulationResult, simulate
 from spatial_ipd.judgments import (
     COOPERATION_SURVIVED_YES_THRESHOLD,
     typesafe_questions,
 )
+
+
+def load_dotenv(path: Path | None = None) -> Path | None:
+    """Load KEY=VALUE pairs from `.env` without overwriting existing env vars."""
+    candidate = Path(path) if path is not None else Path.cwd() / ".env"
+    if not candidate.is_file():
+        return None
+    for raw in candidate.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        value = value.strip().strip("'").strip('"')
+        if key and key not in os.environ:
+            os.environ[key] = value
+    return candidate
 
 
 @dataclass(frozen=True)
@@ -122,6 +141,7 @@ def main(
     client: object | None = None,
     questions: dict | None = None,
 ) -> int:
+    load_dotenv()
     args = parse_args(argv)
     result = simulate(
         args.height,

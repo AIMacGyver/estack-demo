@@ -1,5 +1,6 @@
 """Optional TypeSafe series labels: state shape, thresholds, fake client."""
 
+import os
 import sys
 from types import SimpleNamespace
 
@@ -13,6 +14,7 @@ from spatial_ipd.label import (
     format_label,
     label_from_response,
     label_series,
+    load_dotenv,
     main,
     state_from_result,
 )
@@ -47,6 +49,16 @@ def _response(*, regime="collapse", regime_conf=0.86, demo=1.64, demo_conf=0.46,
         scores={"demo_worthy": SimpleNamespace(score=demo, confidence=demo_conf)},
         nouls={"cooperation_survived": SimpleNamespace(noul=survived)},
     )
+
+
+def test_load_dotenv_sets_missing_keys_only(tmp_path, monkeypatch):
+    env_file = tmp_path / ".env"
+    env_file.write_text("TYPESAFE_API_KEY=from-file\nALREADY=file-value\n", encoding="utf-8")
+    monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
+    monkeypatch.setenv("ALREADY", "from-process")
+    assert load_dotenv(env_file) == env_file
+    assert os.environ["TYPESAFE_API_KEY"] == "from-file"
+    assert os.environ["ALREADY"] == "from-process"
 
 
 def test_importing_engine_does_not_load_typesafe_sdk():
