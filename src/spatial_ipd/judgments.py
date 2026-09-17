@@ -65,7 +65,9 @@ WORTH_THINKING_THRESHOLD = 0.6
 RESIST_YES_THRESHOLD = 0.6
 
 THINKER_WORTH_INSTRUCTIONS = (
-    "Using `thinkers[{i}].patch_after` and `thinkers[{i}].after_imitate`, "
+    "Using `thinkers[{i}].patch_after`, `thinkers[{i}].after_imitate`, "
+    "and the imitate scores `thinkers[{i}].focal_score` / "
+    "`thinkers[{i}].best_neighbor_score`, "
     "is this a mixed neighborhood where overriding imitation could matter? "
     "Uniform all-C or all-D is not worth overriding."
 )
@@ -79,6 +81,9 @@ THINKER_RESIST_INSTRUCTIONS = (
     "This seat was Cooperate (`thinkers[{i}].before` = 1) and imitation just "
     "made it Defect (`thinkers[{i}].after_imitate` = 0). "
     "`thinkers[{i}].patch_after` is the 3x3 after imitation (center is this cell). "
+    "`thinkers[{i}].focal_score` is this cell's Moore-8 payoff before imitation; "
+    "`thinkers[{i}].best_neighbor_score` and `thinkers[{i}].best_neighbor_strategy` "
+    "are the imitate-the-best winner (focal wins ties). "
     "Should this cooperator resist and stay C?"
 )
 

@@ -3,7 +3,7 @@
 from types import SimpleNamespace
 
 import spatial_ipd.think as think_mod
-from spatial_ipd.engine import simulate
+from spatial_ipd.engine import adopt_best, score_cells, simulate
 from spatial_ipd.judgments import (
     RESIST_YES_THRESHOLD,
     WORTH_THINKING_THRESHOLD,
@@ -34,6 +34,7 @@ from spatial_ipd.think import (
     state_for_thinkers,
     think_after_step,
     thinker_seats,
+    winning_imitate,
 )
 
 
@@ -447,3 +448,39 @@ def test_state_for_thinkers_lists_before_and_after():
     assert state["thinkers"][0]["before"] == C
     assert state["thinkers"][0]["after_imitate"] == D
     assert state["generation"] == 3
+
+
+def test_state_for_thinkers_includes_imitate_scores():
+    before = [
+        [C, C, C],
+        [C, D, C],
+        [C, C, C],
+    ]
+    after = adopt_best(before, score_cells(before))
+    state = state_for_thinkers(before, after, ((0, 0),), generation=4)
+    seat = state["thinkers"][0]
+    scores = score_cells(before)
+    best_score, best_strategy = winning_imitate(before, scores, 0, 0)
+    assert seat["focal_score"] == scores[0][0]
+    assert seat["best_neighbor_score"] == best_score
+    assert seat["best_neighbor_strategy"] == best_strategy
+    assert seat["focal_score"] < seat["best_neighbor_score"]
+    assert seat["best_neighbor_strategy"] == D
+    assert after[0][0] == D
+
+
+def test_winning_imitate_matches_adopt_best():
+    before = [
+        [C, C, C],
+        [C, D, C],
+        [C, C, C],
+    ]
+    scores = score_cells(before)
+    nxt = adopt_best(before, scores)
+    for row in range(3):
+        for col in range(3):
+            _best_score, best_strategy = winning_imitate(before, scores, row, col)
+            assert best_strategy == nxt[row][col]
+    tied = [[C, D], [D, C]]
+    even = [[9, 9], [9, 9]]
+    assert winning_imitate(tied, even, 0, 0) == (9, C)

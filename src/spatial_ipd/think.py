@@ -12,6 +12,7 @@ from spatial_ipd.engine import (
     SimulationResult,
     cooperation_rate,
     random_grid,
+    score_cells,
     simulate,
     step,
 )
@@ -183,6 +184,19 @@ def should_resist(worth_thinking: float, resist: float, before: int, after_imita
     )
 
 
+def winning_imitate(grid: Grid, scores: list[list[int]], row: int, col: int) -> tuple[int, int]:
+    """Return (best_score, best_strategy) using the same rule as ``adopt_best``."""
+    height, width = len(grid), len(grid[0])
+    best_score = scores[row][col]
+    best_strategy = int(grid[row][col])
+    for nr, nc in moore_neighbors(row, col, height, width):
+        neighbor_score = scores[nr][nc]
+        if neighbor_score > best_score:
+            best_score = neighbor_score
+            best_strategy = int(grid[nr][nc])
+    return int(best_score), int(best_strategy)
+
+
 def state_for_thinkers(
     before: Grid,
     after: Grid,
@@ -190,8 +204,10 @@ def state_for_thinkers(
     generation: int,
 ) -> dict:
     """Build the named JSON state for one TypeSafe thinker call."""
+    scores = score_cells(before)
     thinkers = []
     for row, col in seats:
+        best_score, best_strategy = winning_imitate(before, scores, row, col)
         thinkers.append(
             {
                 "row": row,
@@ -199,6 +215,9 @@ def state_for_thinkers(
                 "before": int(before[row][col]),
                 "after_imitate": int(after[row][col]),
                 "patch_after": patch3(after, row, col),
+                "focal_score": int(scores[row][col]),
+                "best_neighbor_score": best_score,
+                "best_neighbor_strategy": best_strategy,
             }
         )
     return {"generation": generation, "thinkers": thinkers}
