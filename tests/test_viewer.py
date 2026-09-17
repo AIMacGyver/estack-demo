@@ -61,6 +61,8 @@ def test_parse_args_overrides():
             "5",
             "--thinkers",
             "2",
+            "--seats",
+            "random",
         ]
     )
     assert config == ViewerConfig(
@@ -72,6 +74,7 @@ def test_parse_args_overrides():
         fps=3,
         think_every=5,
         thinkers=2,
+        seat_mode="random",
     )
 
 
@@ -90,6 +93,8 @@ def test_validate_config_rejects_bad_values():
         validate_config(ViewerConfig(mutation_rate=1.1))
     with pytest.raises(ValueError):
         validate_config(ViewerConfig(think_every=-1))
+    with pytest.raises(ValueError):
+        validate_config(ViewerConfig(seat_mode="diagonal"))
 
 
 def test_new_run_uses_engine_random_grid_and_does_not_reimplement_pd():

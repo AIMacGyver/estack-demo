@@ -21,7 +21,12 @@ from spatial_ipd.judgments import (
     typesafe_thinker_questions,
 )
 from spatial_ipd.label import load_dotenv
+from spatial_ipd.neighborhood import moore_neighbors
 from spatial_ipd.payoffs import COOPERATE, DEFECT
+
+SEAT_RANDOM = "random"
+SEAT_FRONTIER = "frontier"
+SEAT_MODES = (SEAT_RANDOM, SEAT_FRONTIER)
 
 
 def _copy_grid(grid: Grid) -> Grid:
@@ -79,6 +84,74 @@ def thinker_seats(
     rng = Random((seed + 1) * 10007 + generation)
     picked = rng.sample(range(cells), take)
     return tuple((idx // width, idx % width) for idx in picked)
+
+
+def is_strategy_frontier(grid: Grid, row: int, col: int) -> bool:
+    """True if a Moore neighbor plays a different strategy than this cell."""
+    height, width = len(grid), len(grid[0])
+    focal = int(grid[row][col])
+    return any(int(grid[nr][nc]) != focal for nr, nc in moore_neighbors(row, col, height, width))
+
+
+def frontier_pools(
+    before: Grid,
+    after: Grid,
+) -> tuple[list[tuple[int, int]], list[tuple[int, int]], list[tuple[int, int]]]:
+    """Changed cells, then C/D edges, then the rest (each list unique)."""
+    height, width = len(after), len(after[0])
+    changed: list[tuple[int, int]] = []
+    edge: list[tuple[int, int]] = []
+    rest: list[tuple[int, int]] = []
+    for row in range(height):
+        for col in range(width):
+            seat = (row, col)
+            if int(before[row][col]) != int(after[row][col]):
+                changed.append(seat)
+            elif is_strategy_frontier(after, row, col):
+                edge.append(seat)
+            else:
+                rest.append(seat)
+    return changed, edge, rest
+
+
+def frontier_seats(
+    before: Grid,
+    after: Grid,
+    count: int,
+    *,
+    seed: int,
+    generation: int,
+) -> tuple[tuple[int, int], ...]:
+    """Deterministic seats: prefer just-changed cells, then C/D frontier."""
+    if count < 1:
+        return ()
+    rng = Random((seed + 1) * 10007 + generation)
+    picked: list[tuple[int, int]] = []
+    for pool in frontier_pools(before, after):
+        order = list(pool)
+        rng.shuffle(order)
+        for seat in order:
+            if len(picked) >= count:
+                return tuple(picked)
+            picked.append(seat)
+    return tuple(picked[:count])
+
+
+def choose_seats(
+    height: int,
+    width: int,
+    count: int,
+    *,
+    seed: int,
+    generation: int,
+    mode: str = SEAT_FRONTIER,
+    before: Grid | None = None,
+    after: Grid | None = None,
+) -> tuple[tuple[int, int], ...]:
+    """Pick thinker seats using ``mode`` (frontier needs before/after grids)."""
+    if mode == SEAT_FRONTIER and before is not None and after is not None:
+        return frontier_seats(before, after, count, seed=seed, generation=generation)
+    return thinker_seats(height, width, count, seed=seed, generation=generation)
 
 
 def resolve_strategy(before: int, after_imitate: int, act: str) -> int:
@@ -170,11 +243,21 @@ def think_after_step(
     client: object | None = None,
     questions: dict | None = None,
     stats: ThinkerStats | None = None,
+    seat_mode: str = SEAT_FRONTIER,
 ) -> tuple[Grid, ThinkerStats]:
     """Maybe override a few cells after a normal ``step``."""
     tally = stats if stats is not None else ThinkerStats()
     height, width = len(after), len(after[0])
-    seats = thinker_seats(height, width, thinker_count, seed=seed, generation=generation)
+    seats = choose_seats(
+        height,
+        width,
+        thinker_count,
+        seed=seed,
+        generation=generation,
+        mode=seat_mode,
+        before=before,
+        after=after,
+    )
     tally.last_seats = seats
     if not seats:
         tally.last_decisions = ()
@@ -218,6 +301,7 @@ def simulate_with_thinkers(
     thinker_count: int = 4,
     client: object | None = None,
     questions: dict | None = None,
+    seat_mode: str = SEAT_FRONTIER,
 ) -> tuple[SimulationResult, ThinkerStats]:
     """Like ``simulate``, plus optional Jev overrides every ``think_every`` gens.
 
@@ -255,6 +339,7 @@ def simulate_with_thinkers(
                 client=client,
                 questions=questions,
                 stats=stats,
+                seat_mode=seat_mode,
             )
         rates.append(cooperation_rate(grid))
     frozen = tuple(tuple(int(cell) for cell in row) for row in grid)
@@ -317,6 +402,12 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--think-every", type=int, default=5)
     parser.add_argument("--thinkers", type=int, default=4)
     parser.add_argument(
+        "--seats",
+        choices=SEAT_MODES,
+        default=SEAT_FRONTIER,
+        help="random = old uniform seats; frontier = just-changed then C/D edges (Jev pick).",
+    )
+    parser.add_argument(
         "--compare",
         action="store_true",
         help="Also run plain simulate() and print both final cooperation rates.",
@@ -351,6 +442,7 @@ def main(
         thinker_count=args.thinkers,
         client=client,
         questions=questions,
+        seat_mode=args.seats,
     )
     if args.compare:
         plain = simulate(**kwargs)

@@ -10,12 +10,17 @@ from spatial_ipd.judgments import (
 from spatial_ipd.payoffs import COOPERATE as C
 from spatial_ipd.payoffs import DEFECT as D
 from spatial_ipd.think import (
+    SEAT_FRONTIER,
+    SEAT_RANDOM,
     ThinkerDecision,
     apply_decisions,
+    choose_seats,
     decisions_from_response,
     format_compare_summary,
     format_decision_line,
     format_think_summary,
+    frontier_pools,
+    frontier_seats,
     main,
     patch3,
     resolve_strategy,
@@ -67,6 +72,71 @@ def test_thinker_seats_are_deterministic_and_unique():
     assert len(a) == 4
     assert len(set(a)) == 4
     assert thinker_seats(12, 12, 4, seed=20260316, generation=10) != a
+
+
+def test_frontier_pools_changed_then_edge_then_rest():
+    before = [[C, C, C], [C, C, C], [C, C, C]]
+    after = [[C, C, C], [C, D, C], [C, C, C]]
+    changed, edge, rest = frontier_pools(before, after)
+    assert changed == [(1, 1)]
+    assert (1, 1) not in edge
+    assert (1, 1) not in rest
+    # 3x3 torus: every other cell is a Moore neighbor of the lone D.
+    assert set(edge) == {(r, c) for r in range(3) for c in range(3) if (r, c) != (1, 1)}
+    assert rest == []
+
+
+def test_frontier_seats_prefer_changed_cells():
+    before = [[C, C], [C, C]]
+    after = [[D, C], [C, C]]
+    seats = frontier_seats(before, after, 1, seed=1, generation=1)
+    assert seats == ((0, 0),)
+
+
+def test_frontier_seats_are_deterministic_and_unique():
+    before = [[C, D, C], [D, C, D], [C, D, C]]
+    after = [[D, D, C], [D, C, D], [C, D, C]]
+    a = frontier_seats(before, after, 4, seed=20260316, generation=5)
+    b = frontier_seats(before, after, 4, seed=20260316, generation=5)
+    assert a == b
+    assert len(a) == 4
+    assert len(set(a)) == 4
+    assert frontier_seats(before, after, 4, seed=20260316, generation=10) != a
+
+
+def test_choose_seats_random_matches_thinker_seats():
+    expected = thinker_seats(12, 12, 4, seed=20260316, generation=5)
+    got = choose_seats(12, 12, 4, seed=20260316, generation=5, mode=SEAT_RANDOM)
+    assert got == expected
+    assert choose_seats(12, 12, 4, seed=20260316, generation=5, mode=SEAT_FRONTIER) == expected
+
+
+def test_think_after_step_frontier_prefers_changed_seat():
+    before = [[C, C, C], [C, C, C], [C, C, C]]
+    after = [[C, C, C], [C, D, C], [C, C, C]]
+    client = FakeClient(_response([("imitate", 0.2, 0.8)]))
+    _, stats = think_after_step(
+        before,
+        after,
+        generation=5,
+        seed=20260316,
+        thinker_count=1,
+        client=client,
+        questions={"placeholder": object()},
+        seat_mode=SEAT_FRONTIER,
+    )
+    assert stats.last_seats == ((1, 1),)
+    _, random_stats = think_after_step(
+        before,
+        after,
+        generation=5,
+        seed=20260316,
+        thinker_count=1,
+        client=client,
+        questions={"placeholder": object()},
+        seat_mode=SEAT_RANDOM,
+    )
+    assert random_stats.last_seats == thinker_seats(3, 3, 1, seed=20260316, generation=5)
 
 
 def test_resolve_and_should_apply_policy():
@@ -176,6 +246,8 @@ def test_compare_and_verbose_cli(capsys):
             "2",
             "--thinkers",
             "1",
+            "--seats",
+            "frontier",
             "--compare",
             "--verbose",
         ],
@@ -190,6 +262,36 @@ def test_compare_and_verbose_cli(capsys):
     assert "gen=2" in out
     assert "act=hold" in out
     assert client.calls
+
+
+def test_cli_seats_random_uses_uniform_seats():
+    client = FakeClient(_response([("imitate", 0.2, 0.8)]))
+    questions = {"placeholder": object()}
+    code = main(
+        [
+            "--height",
+            "3",
+            "--width",
+            "3",
+            "--generations",
+            "1",
+            "--seed",
+            "20260316",
+            "--think-every",
+            "1",
+            "--thinkers",
+            "1",
+            "--seats",
+            "random",
+        ],
+        client=client,
+        questions=questions,
+    )
+    assert code == 0
+    expected = thinker_seats(3, 3, 1, seed=20260316, generation=1)
+    assert client.calls
+    assert client.calls[0][0]["thinkers"][0]["row"] == expected[0][0]
+    assert client.calls[0][0]["thinkers"][0]["col"] == expected[0][1]
 
 
 def test_format_compare_zero_thinkers_matches_golden():

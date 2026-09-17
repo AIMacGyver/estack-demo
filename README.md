@@ -69,7 +69,7 @@ Questions and the survival threshold live in `src/spatial_ipd/judgments.py`.
 
 ## Optional Jev thinkers
 
-Most cells still imitate. Every `--think-every` generations, a few seeded seats ask Jev whether to **hold** (resist a copy) or **flip**. Payoffs and the default `simulate()` golden do not change. Needs `TYPESAFE_API_KEY`.
+Most cells still imitate. Every `--think-every` generations, a few seats ask Jev whether to **hold** (resist a copy) or **flip**. Default `--seats frontier` prefers cells that just changed, then C/D edges (Jev’s pick so a hold can resist an invasion). `--seats random` is the old uniform draw. Payoffs and the default `simulate()` golden do not change. Needs `TYPESAFE_API_KEY`.
 
 ```bash
 uv sync --extra typesafe
@@ -77,12 +77,12 @@ uv run python -m spatial_ipd.think \
   --height 16 --width 16 --generations 30 \
   --seed 20260316 --mutation-rate 0.02 \
   --think-every 5 --thinkers 4 \
-  --compare --verbose
+  --seats frontier --compare --verbose
 ```
 
 `--compare` prints plain `simulate()` vs the thinker run. `--verbose` prints each seat’s act / worth / confidence.
 
-Viewer outlines thinker seats in gold when `--think-every` is set.
+Viewer outlines thinker seats in gold when `--think-every` is set (`--seats` works there too).
 
 ```python
 from spatial_ipd import simulate

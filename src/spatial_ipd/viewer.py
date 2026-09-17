@@ -15,7 +15,7 @@ from random import Random
 
 from spatial_ipd.engine import cooperation_rate, random_grid, step
 from spatial_ipd.payoffs import COOPERATE
-from spatial_ipd.think import think_after_step
+from spatial_ipd.think import SEAT_FRONTIER, SEAT_MODES, think_after_step
 
 # Blue = Cooperate, red = Defect. RGB tuples, no pygame required.
 COLOR_COOPERATE = (40, 90, 220)
@@ -35,6 +35,7 @@ class ViewerConfig:
     fps: int = 8
     think_every: int = 0
     thinkers: int = 4
+    seat_mode: str = SEAT_FRONTIER
 
 
 def cell_color(strategy: int) -> tuple[int, int, int]:
@@ -61,6 +62,8 @@ def validate_config(config: ViewerConfig) -> ViewerConfig:
         raise ValueError("think-every must be non-negative")
     if config.thinkers < 0:
         raise ValueError("thinkers must be non-negative")
+    if config.seat_mode not in SEAT_MODES:
+        raise ValueError(f"seats must be one of {', '.join(SEAT_MODES)}")
     return config
 
 
@@ -84,6 +87,13 @@ def parse_args(argv: list[str] | None = None) -> ViewerConfig:
     parser.add_argument("--fps", type=int, default=defaults.fps)
     parser.add_argument("--think-every", type=int, default=defaults.think_every, dest="think_every")
     parser.add_argument("--thinkers", type=int, default=defaults.thinkers)
+    parser.add_argument(
+        "--seats",
+        choices=SEAT_MODES,
+        default=defaults.seat_mode,
+        dest="seat_mode",
+        help="random = old uniform seats; frontier = just-changed then C/D edges.",
+    )
     ns = parser.parse_args(argv)
     return validate_config(
         ViewerConfig(
@@ -95,6 +105,7 @@ def parse_args(argv: list[str] | None = None) -> ViewerConfig:
             fps=ns.fps,
             think_every=ns.think_every,
             thinkers=ns.thinkers,
+            seat_mode=ns.seat_mode,
         )
     )
 
@@ -195,6 +206,7 @@ def run(config: ViewerConfig) -> None:
                         generation=generation,
                         seed=config.seed,
                         thinker_count=config.thinkers,
+                        seat_mode=config.seat_mode,
                     )
                     seats = set(stats.last_seats)
                 else:
