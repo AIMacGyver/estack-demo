@@ -94,17 +94,13 @@ def test_hold_restores_before_when_jev_is_sure():
 def test_low_confidence_does_not_override():
     before = [[C]]
     after = [[D]]
-    decisions = decisions_from_response(
-        ((0, 0),), before, after, _response([("hold", 0.88, 0.23)])
-    )
+    decisions = decisions_from_response(((0, 0),), before, after, _response([("hold", 0.88, 0.23)]))
     assert decisions[0].applied is False
     assert decisions[0].after_think == D
 
 
 def test_think_every_zero_matches_engine_golden():
-    kwargs = dict(
-        height=12, width=12, generations=30, seed=20260316, mutation_rate=0.02
-    )
+    kwargs = dict(height=12, width=12, generations=30, seed=20260316, mutation_rate=0.02)
     plain = simulate(**kwargs)
     with_off, stats = simulate_with_thinkers(**kwargs, think_every=0)
     assert with_off.cooperation_rates == plain.cooperation_rates
@@ -156,9 +152,7 @@ def test_cli_think_every_zero(capsys):
     out = capsys.readouterr().out
     assert "think_calls=0" in out
     assert "final_cooperation_rate=0.013888888888888888" in out
-    result, stats = simulate_with_thinkers(
-        12, 12, 30, seed=20260316, mutation_rate=0.02, think_every=0
-    )
+    result, stats = simulate_with_thinkers(12, 12, 30, seed=20260316, mutation_rate=0.02, think_every=0)
     assert format_think_summary(result, stats) in out
 
 

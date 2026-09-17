@@ -96,9 +96,7 @@ def label_series(
         try:
             from typesafe_sdk import TypeSafeClient
         except ImportError as exc:
-            raise ImportError(
-                'TypeSafe is optional. Install with: python3 -m pip install -e ".[typesafe]"'
-            ) from exc
+            raise ImportError('TypeSafe is optional. Install with: python3 -m pip install -e ".[typesafe]"') from exc
         with TypeSafeClient() as opened:
             return label_from_response(opened.system_one(state=state, questions=qs))
     return label_from_response(client.system_one(state=state, questions=qs))
@@ -115,6 +113,7 @@ def format_label(label: SeriesLabel) -> str:
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
+    """Parse label CLI flags."""
     parser = argparse.ArgumentParser(
         prog="python -m spatial_ipd.label",
         description=(
@@ -141,6 +140,7 @@ def main(
     client: object | None = None,
     questions: dict | None = None,
 ) -> int:
+    """Run a seeded simulation and print TypeSafe series labels."""
     load_dotenv()
     args = parse_args(argv)
     result = simulate(

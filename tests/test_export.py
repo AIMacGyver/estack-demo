@@ -4,7 +4,6 @@ from pathlib import Path
 
 from spatial_ipd.engine import simulate
 from spatial_ipd.export import format_summary, main, write_cooperation_csv
-
 from test_engine import (
     SEEDED_CELLS,
     SEEDED_FINAL_COOPERATION_RATE,

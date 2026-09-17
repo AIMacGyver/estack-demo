@@ -28,8 +28,7 @@ REGIME_CRITERIA = {
         "small short-lived pops up and down (typical of mutation noise)."
     ),
     "persist": (
-        "Cooperation remains a large share of the lattice (well above a few "
-        "leftover cells) for most generations."
+        "Cooperation remains a large share of the lattice (well above a few leftover cells) for most generations."
     ),
     "other": "The series does not fit collapse, flicker, or persist.",
 }
@@ -71,8 +70,7 @@ THINKER_WORTH_INSTRUCTIONS = (
 )
 
 THINKER_WORTH_CRITERIA = {
-    "true": "C and D both appear, or `thinkers[{i}].before` differs from "
-    "`thinkers[{i}].after_imitate`.",
+    "true": "C and D both appear, or `thinkers[{i}].before` differs from `thinkers[{i}].after_imitate`.",
     "false": "The patch is uniform and the cell did not just change.",
 }
 
@@ -86,17 +84,11 @@ THINKER_ACT_INSTRUCTIONS = (
 
 THINKER_ACT_CRITERIA = {
     "imitate": "Keep `after_imitate`. Local copy-the-winner is fine.",
-    "hold": (
-        "Restore `before`. Resist the copy — stay with what this cell "
-        "played at the start of the generation."
-    ),
+    "hold": ("Restore `before`. Resist the copy — stay with what this cell played at the start of the generation."),
     "flip": "Invert `after_imitate` (not merely restore `before`).",
 }
 
-THINKER_FRAGILITY_INSTRUCTIONS = (
-    "How fragile is cooperation in `thinkers[{i}].patch_after` "
-    "for the next generation?"
-)
+THINKER_FRAGILITY_INSTRUCTIONS = "How fragile is cooperation in `thinkers[{i}].patch_after` for the next generation?"
 
 THINKER_FRAGILITY_LEVELS = [
     "Cooperation is absent, or a solid C block with no adjacent D.",
@@ -110,9 +102,7 @@ def typesafe_questions():
     try:
         from typesafe_sdk import Choice, Noul, Score
     except ImportError as exc:
-        raise ImportError(
-            'TypeSafe is optional. Install with: python3 -m pip install -e ".[typesafe]"'
-        ) from exc
+        raise ImportError('TypeSafe is optional. Install with: python3 -m pip install -e ".[typesafe]"') from exc
     return {
         "regime": Choice(
             instructions=REGIME_INSTRUCTIONS,
@@ -136,9 +126,7 @@ def typesafe_thinker_questions(count: int) -> dict:
     try:
         from typesafe_sdk import Choice, Noul, Score
     except ImportError as exc:
-        raise ImportError(
-            'TypeSafe is optional. Install with: python3 -m pip install -e ".[typesafe]"'
-        ) from exc
+        raise ImportError('TypeSafe is optional. Install with: python3 -m pip install -e ".[typesafe]"') from exc
     questions = {}
     for i in range(count):
         questions[f"worth_thinking_{i}"] = Noul(

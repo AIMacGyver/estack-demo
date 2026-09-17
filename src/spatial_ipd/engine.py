@@ -67,10 +67,7 @@ def random_grid(
     if height < 1 or width < 1:
         raise ValueError("grid dimensions must be positive")
     rng = Random(seed)
-    return [
-        [COOPERATE if rng.random() < cooperate_p else DEFECT for _ in range(width)]
-        for _ in range(height)
-    ]
+    return [[COOPERATE if rng.random() < cooperate_p else DEFECT for _ in range(width)] for _ in range(height)]
 
 
 def score_cells(grid: Grid) -> list[list[int]]:
@@ -152,8 +149,10 @@ def simulate(
     if generations < 0:
         raise ValueError("generations must be non-negative")
     rng = Random(seed)
-    grid = _copy_grid(initial_grid) if initial_grid is not None else random_grid(
-        height, width, seed=seed, cooperate_p=cooperate_p
+    grid = (
+        _copy_grid(initial_grid)
+        if initial_grid is not None
+        else random_grid(height, width, seed=seed, cooperate_p=cooperate_p)
     )
     rates = [cooperation_rate(grid)]
     for _ in range(generations):

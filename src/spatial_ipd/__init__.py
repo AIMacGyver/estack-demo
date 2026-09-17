@@ -21,6 +21,7 @@ from spatial_ipd.payoffs import (
     mutual_payoffs,
     payoff,
 )
+
 __all__ = [
     "COOPERATE",
     "DEFECT",

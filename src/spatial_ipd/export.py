@@ -38,11 +38,11 @@ def format_summary(result: SimulationResult, out_path: Path | str | None = None)
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
+    """Parse export CLI flags."""
     parser = argparse.ArgumentParser(
         prog="python -m spatial_ipd.export",
         description=(
-            "Run a seeded Spatial IPD simulation and write a cooperation-rate "
-            "time series to CSV (no display required)."
+            "Run a seeded Spatial IPD simulation and write a cooperation-rate time series to CSV (no display required)."
         ),
     )
     parser.add_argument("--height", type=int, required=True)
@@ -55,6 +55,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    """Run a seeded simulation and write the cooperation-rate CSV."""
     args = parse_args(argv)
     result = simulate(
         args.height,

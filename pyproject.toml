@@ -1,24 +1,51 @@
-[build-system]
-requires = ["setuptools>=68"]
-build-backend = "setuptools.build_meta"
-
 [project]
 name = "spatial-ipd"
 version = "0.1.0"
 description = "Headless Spatial Iterated Prisoner's Dilemma engine"
 readme = "README.md"
-requires-python = ">=3.10"
+authors = [{ name = "Spatial IPD contributors" }]
+requires-python = ">=3.12"
 license = { text = "MIT" }
+dependencies = []
 
 [project.optional-dependencies]
-dev = ["pytest>=8"]
 viewer = ["pygame>=2.5"]
 typesafe = ["typesafe-sdk>=0.6"]
 
-[tool.setuptools.packages.find]
-where = ["src"]
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/spatial_ipd"]
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.0.0",
+    "pytest>=8.0.0",
+    "ruff>=0.9.0",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "D"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
-addopts = "-q"
+addopts = ["-q"]

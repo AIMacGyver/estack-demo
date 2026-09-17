@@ -30,6 +30,8 @@ def _copy_grid(grid: Grid) -> Grid:
 
 @dataclass(frozen=True)
 class ThinkerDecision:
+    """One Jev decision for a thinker seat after imitation."""
+
     row: int
     col: int
     act: str
@@ -43,6 +45,8 @@ class ThinkerDecision:
 
 @dataclass
 class ThinkerStats:
+    """Counters and the last thinker's seats for a run."""
+
     calls: int = 0
     holds: int = 0
     flips: int = 0
@@ -54,10 +58,7 @@ class ThinkerStats:
 def patch3(grid: Grid, row: int, col: int) -> list[list[int]]:
     """3x3 neighborhood centered on ``(row, col)`` with toroidal wrap."""
     height, width = len(grid), len(grid[0])
-    return [
-        [int(grid[(row + dr) % height][(col + dc) % width]) for dc in (-1, 0, 1)]
-        for dr in (-1, 0, 1)
-    ]
+    return [[int(grid[(row + dr) % height][(col + dc) % width]) for dc in (-1, 0, 1)] for dr in (-1, 0, 1)]
 
 
 def thinker_seats(
@@ -88,10 +89,8 @@ def resolve_strategy(before: int, after_imitate: int, act: str) -> int:
 
 
 def should_apply(worth_thinking: float, act_confidence: float) -> bool:
-    return (
-        worth_thinking >= WORTH_THINKING_THRESHOLD
-        and act_confidence >= ACT_OVERRIDE_CONFIDENCE
-    )
+    """Return True when Jev is sure enough to override imitation."""
+    return worth_thinking >= WORTH_THINKING_THRESHOLD and act_confidence >= ACT_OVERRIDE_CONFIDENCE
 
 
 def state_for_thinkers(
@@ -100,6 +99,7 @@ def state_for_thinkers(
     seats: Sequence[tuple[int, int]],
     generation: int,
 ) -> dict:
+    """Build the named JSON state for one TypeSafe thinker call."""
     thinkers = []
     for row, col in seats:
         thinkers.append(
@@ -120,6 +120,7 @@ def decisions_from_response(
     after: Grid,
     response: object,
 ) -> list[ThinkerDecision]:
+    """Map a TypeSafe (or test double) response onto per-seat decisions."""
     out: list[ThinkerDecision] = []
     for i, (row, col) in enumerate(seats):
         worth = float(response.nouls[f"worth_thinking_{i}"].noul)
@@ -147,6 +148,7 @@ def decisions_from_response(
 
 
 def apply_decisions(grid: Grid, decisions: Sequence[ThinkerDecision]) -> Grid:
+    """Return a new grid with applied thinker overrides."""
     nxt = _copy_grid(grid)
     for item in decisions:
         nxt[item.row][item.col] = item.after_think
@@ -167,9 +169,7 @@ def think_after_step(
     """Maybe override a few cells after a normal ``step``."""
     tally = stats if stats is not None else ThinkerStats()
     height, width = len(after), len(after[0])
-    seats = thinker_seats(
-        height, width, thinker_count, seed=seed, generation=generation
-    )
+    seats = thinker_seats(height, width, thinker_count, seed=seed, generation=generation)
     tally.last_seats = seats
     if not seats:
         tally.last_decisions = ()
@@ -181,9 +181,7 @@ def think_after_step(
         try:
             from typesafe_sdk import TypeSafeClient
         except ImportError as exc:
-            raise ImportError(
-                'TypeSafe is optional. Install with: python3 -m pip install -e ".[typesafe]"'
-            ) from exc
+            raise ImportError('TypeSafe is optional. Install with: python3 -m pip install -e ".[typesafe]"') from exc
         with TypeSafeClient() as opened:
             response = opened.system_one(state=state, questions=qs)
     else:
@@ -265,6 +263,7 @@ def simulate_with_thinkers(
 
 
 def format_think_summary(result: SimulationResult, stats: ThinkerStats) -> str:
+    """One-line CLI summary after a thinker run."""
     return (
         f"final_cooperation_rate={result.final_cooperation_rate} "
         f"generations={result.generations} seed={result.seed} "
@@ -274,6 +273,7 @@ def format_think_summary(result: SimulationResult, stats: ThinkerStats) -> str:
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
+    """Parse thinker CLI flags."""
     parser = argparse.ArgumentParser(
         prog="python -m spatial_ipd.think",
         description=(
@@ -297,6 +297,7 @@ def main(
     client: object | None = None,
     questions: dict | None = None,
 ) -> int:
+    """Run Spatial IPD with optional Jev thinker overrides."""
     load_dotenv()
     args = parse_args(argv)
     result, stats = simulate_with_thinkers(

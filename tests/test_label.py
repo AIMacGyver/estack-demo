@@ -104,8 +104,7 @@ def test_label_series_uses_injected_client():
     assert set(REGIME_CRITERIA) == {"collapse", "flicker", "persist", "other"}
     assert len(DEMO_WORTHY_LEVELS) == 3
     assert format_label(label) == (
-        "regime=collapse regime_confidence=0.86 "
-        "cooperation_survived=0.17 survived=no demo_worthy=1.64"
+        "regime=collapse regime_confidence=0.86 cooperation_survived=0.17 survived=no demo_worthy=1.64"
     )
 
 
@@ -130,8 +129,7 @@ def test_cli_prints_one_line_with_fake_client(capsys):
     assert code == 0
     captured = capsys.readouterr()
     assert captured.out == (
-        "regime=collapse regime_confidence=0.86 "
-        "cooperation_survived=0.17 survived=no demo_worthy=1.64\n"
+        "regime=collapse regime_confidence=0.86 cooperation_survived=0.17 survived=no demo_worthy=1.64\n"
     )
     assert captured.err == ""
     assert client.calls

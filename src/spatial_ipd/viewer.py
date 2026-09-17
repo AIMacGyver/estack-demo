@@ -125,9 +125,7 @@ def import_pygame():
     try:
         import pygame
     except ImportError as exc:
-        raise ImportError(
-            'Pygame is required for the viewer. Install with: pip install -e ".[viewer]"'
-        ) from exc
+        raise ImportError('Pygame is required for the viewer. Install with: pip install -e ".[viewer]"') from exc
     return pygame
 
 
@@ -162,9 +160,7 @@ def run(config: ViewerConfig) -> None:
     pygame = import_pygame()
     pygame.init()
     try:
-        screen = pygame.display.set_mode(
-            (config.width * config.cell_size, config.height * config.cell_size)
-        )
+        screen = pygame.display.set_mode((config.width * config.cell_size, config.height * config.cell_size))
         clock = pygame.time.Clock()
         grid, rng = new_run(config.height, config.width, config.seed)
         generation = 0
@@ -184,9 +180,7 @@ def run(config: ViewerConfig) -> None:
                         grid, rng = new_run(config.height, config.width, config.seed)
                         generation = 0
                         seats = set()
-            pygame.display.set_caption(
-                window_caption(generation, grid, thinker_count=len(seats))
-            )
+            pygame.display.set_caption(window_caption(generation, grid, thinker_count=len(seats)))
             _draw_grid(pygame, screen, grid, config.cell_size, seats)
             pygame.display.flip()
             clock.tick(config.fps)
