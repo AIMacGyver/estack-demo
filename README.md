@@ -4,7 +4,7 @@ A small **Spatial Iterated Prisoner's Dilemma** engine (Nowak & May 1992): coope
 
 **Share / clone:** [github.com/aimacgyver/estack-demo](https://github.com/aimacgyver/estack-demo)
 
-**How we build:** [Estack](https://x.ai/bot/R0acF6Pmp8YewSZm6fA-D) for plan → execute → ship (small scope, prove with pytest). [TypeSafe](https://docs.typesafe.ai) (Jev) for snap decisions — after a run (regime / survived?) and *inside* the game (thinker hold/flip). Jev does not replace payoffs or `simulate()`.
+**How we build:** [Estack](https://x.ai/bot/R0acF6Pmp8YewSZm6fA-D) for plan → execute → ship (small scope, prove with pytest). In Cursor that is two project skills — [`estack-lock`](.agents/skills/estack-lock/SKILL.md) then [`estack-ship`](.agents/skills/estack-ship/SKILL.md). Invoke them on a concrete task in this repo (`/estack-lock`, `/estack-ship`). The agent runs the SOP locally; you review the diff and test output. No Cloud Agent unless you ask. [TypeSafe](https://docs.typesafe.ai) (Jev) for snap decisions — after a run (regime / survived?) and *inside* the game (thinker hold/flip). Jev does not replace payoffs, `simulate()`, or the Estack lock.
 
 **Estack Grok Bot template:** [add the Estack bot](https://x.ai/bot/R0acF6Pmp8YewSZm6fA-D) — a recipe, not our chats or API keys.
 
@@ -92,7 +92,7 @@ print(simulate(20, 20, 50, seed=42, mutation_rate=0.01).final_cooperation_rate)
 
 ## Development
 
-Same layout as SkillFlow: uv, Ruff (Google docstrings), pre-commit, Makefile. Planning and execution stay Estack-shaped (small scope, no surprise runtime deps, prove with pytest).
+Same layout as SkillFlow: uv, Ruff (Google docstrings), pre-commit, Makefile. Planning and execution follow the Estack skills (lock a Goal / Scope / Done card, then ship the smallest pytest-backed diff).
 
 ```bash
 make sync
