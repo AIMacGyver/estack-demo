@@ -6,6 +6,8 @@ import spatial_ipd.think as think_mod
 from spatial_ipd.engine import adopt_best, score_cells, simulate
 from spatial_ipd.judgments import (
     RESIST_YES_THRESHOLD,
+    THINKER_RESIST_CRITERIA,
+    THINKER_RESIST_INSTRUCTIONS,
     WORTH_THINKING_THRESHOLD,
 )
 from spatial_ipd.payoffs import COOPERATE as C
@@ -467,6 +469,17 @@ def test_state_for_thinkers_includes_imitate_scores():
     assert seat["focal_score"] < seat["best_neighbor_score"]
     assert seat["best_neighbor_strategy"] == D
     assert after[0][0] == D
+
+
+def test_resist_question_asks_cluster_hold_despite_score_gap():
+    text = THINKER_RESIST_INSTRUCTIONS.format(i=0)
+    assert "`thinkers[0].focal_score`" in text
+    assert "`thinkers[0].best_neighbor_score`" in text
+    assert "score-justified" in text
+    assert "cooperating group" in text
+    assert "keep" in THINKER_RESIST_CRITERIA["true"]
+    assert "payoff" in THINKER_RESIST_CRITERIA["true"]
+    assert "score-justified" in THINKER_RESIST_CRITERIA["false"]
 
 
 def test_winning_imitate_matches_adopt_best():

@@ -60,7 +60,9 @@ SURVIVED_CRITERIA = {
 # Dual-process thinkers. Bake-off (jev-1.13.0): mixed 3x3 worth~0.9;
 # uniform all-C/all-D worth~0.08. A C cell that just copied an invading D
 # chose hold. Live runs: 3-way act Choice often said hold at conf 0.21–0.28
-# (split mass). Resist is now a Noul so P(yes) is the gate, not Choice confidence.
+# (split mass). Resist is a Noul (P(yes) gate, not Choice confidence).
+# After scores-in-state, "was the copy wrong?" sat at 0.38–0.55. The Noul
+# now asks whether to keep a C cluster even though the neighbor won on payoff.
 WORTH_THINKING_THRESHOLD = 0.6
 RESIST_YES_THRESHOLD = 0.6
 
@@ -81,15 +83,18 @@ THINKER_RESIST_INSTRUCTIONS = (
     "This seat was Cooperate (`thinkers[{i}].before` = 1) and imitation just "
     "made it Defect (`thinkers[{i}].after_imitate` = 0). "
     "`thinkers[{i}].patch_after` is the 3x3 after imitation (center is this cell). "
-    "`thinkers[{i}].focal_score` is this cell's Moore-8 payoff before imitation; "
-    "`thinkers[{i}].best_neighbor_score` and `thinkers[{i}].best_neighbor_strategy` "
-    "are the imitate-the-best winner (focal wins ties). "
-    "Should this cooperator resist and stay C?"
+    "`thinkers[{i}].focal_score` lost to `thinkers[{i}].best_neighbor_score` "
+    "(winner strategy `thinkers[{i}].best_neighbor_strategy`). "
+    "That copy is score-justified by imitate-the-best. Even so, should this "
+    "cell stay C to keep a cooperating group in the patch?"
 )
 
 THINKER_RESIST_CRITERIA = {
-    "true": "Resisting the copy would protect a C that just lost to imitate-the-best.",
-    "false": "The copy is fine; this cell should stay D.",
+    "true": (
+        "A C group in the patch is worth keeping even though a neighbor "
+        "won imitate-the-best on payoff."
+    ),
+    "false": "The score-justified copy should stand; do not hold this cell at C.",
 }
 
 THINKER_FRAGILITY_INSTRUCTIONS = "How fragile is cooperation in `thinkers[{i}].patch_after` for the next generation?"
