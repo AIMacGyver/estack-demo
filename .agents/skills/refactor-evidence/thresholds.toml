@@ -1,0 +1,9 @@
+# Default evidence gates. Overrides must name a key, numeric replacement, and rationale.
+required_corroborating_signals = 2
+min_cpu_share = 0.10
+min_allocation_share = 0.10
+min_cyclomatic_complexity = 11
+min_cognitive_complexity = 20
+measurement_repeats = 3
+min_median_improvement = 0.10
+max_other_metric_regression = 0.05

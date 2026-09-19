@@ -20,6 +20,18 @@ metrics is a standing instruction to change code.
 
 All are development-only members of the `analysis` dependency group.
 
+## Refactor gates
+
+`.agents/skills/refactor-evidence/thresholds.toml` contains checked-in defaults
+for evidence eligibility, repeated measurements, minimum improvement, and
+cross-metric regression. The skill requires two corroborating signals and
+defaults to a 10% median improvement ship gate.
+
+Users may override a numeric gate only by naming the key, replacement value,
+and workload-specific rationale in the Estack lock. Vague blanket permission
+is invalid. Observable behavior and side-effect preservation cannot be
+overridden under the refactoring skill.
+
 ## Deferred
 
 - **py-spy 0.4.2** is excellent for attaching to an already-running process.

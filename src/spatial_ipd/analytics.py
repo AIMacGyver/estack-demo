@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass
-from statistics import fmean
 
 from spatial_ipd.engine import Grid, score_cells
-from spatial_ipd.neighborhood import moore_neighbors
+from spatial_ipd.neighborhood import MOORE_OFFSETS
 from spatial_ipd.payoffs import COOPERATE, DEFECT
 
 
@@ -31,58 +31,74 @@ def _shape(grid: Grid) -> tuple[int, int]:
     return len(grid), width
 
 
-def _distinct_neighbors(row: int, col: int, height: int, width: int) -> set[tuple[int, int]]:
-    neighbors = set(moore_neighbors(row, col, height, width))
-    neighbors.discard((row, col))
-    return neighbors
+def _distinct_neighbors(
+    row: int,
+    col: int,
+    height: int,
+    width: int,
+) -> Iterator[tuple[int, int]]:
+    if height >= 3 and width >= 3:
+        for dr, dc in MOORE_OFFSETS:
+            yield (row + dr) % height, (col + dc) % width
+        return
+    seen = set()
+    for dr, dc in MOORE_OFFSETS:
+        neighbor = ((row + dr) % height, (col + dc) % width)
+        if neighbor != (row, col) and neighbor not in seen:
+            seen.add(neighbor)
+            yield neighbor
 
 
-def _cooperator_components(grid: Grid) -> list[set[tuple[int, int]]]:
+def _cooperator_component_sizes(grid: Grid) -> list[int]:
     height, width = _shape(grid)
     remaining = {(row, col) for row in range(height) for col in range(width) if int(grid[row][col]) == COOPERATE}
-    components = []
+    sizes = []
     while remaining:
         root = remaining.pop()
-        component = {root}
+        size = 1
         pending = [root]
         while pending:
             row, col = pending.pop()
-            connected = _distinct_neighbors(row, col, height, width) & remaining
-            remaining.difference_update(connected)
-            component.update(connected)
-            pending.extend(connected)
-        components.append(component)
-    return components
+            for neighbor in _distinct_neighbors(row, col, height, width):
+                if neighbor in remaining:
+                    remaining.remove(neighbor)
+                    pending.append(neighbor)
+                    size += 1
+        sizes.append(size)
+    return sizes
 
 
 def analyze_grid(grid: Grid) -> SpatialMetrics:
     """Measure final cooperator clusters, strategy frontier, and payoffs."""
     height, width = _shape(grid)
-    components = _cooperator_components(grid)
-    frontier = set()
-    cooperator_frontier = set()
+    component_sizes = _cooperator_component_sizes(grid)
+    scores = score_cells(grid)
+    frontier_cells = 0
+    cooperator_frontier_cells = 0
+    cooperator_payoff = 0
+    cooperator_count = 0
+    defector_payoff = 0
+    defector_count = 0
     for row in range(height):
         for col in range(width):
             strategy = int(grid[row][col])
             if any(int(grid[nr][nc]) != strategy for nr, nc in _distinct_neighbors(row, col, height, width)):
-                frontier.add((row, col))
+                frontier_cells += 1
                 if strategy == COOPERATE:
-                    cooperator_frontier.add((row, col))
-
-    scores = score_cells(grid)
-    cooperator_scores = [
-        float(scores[row][col]) for row in range(height) for col in range(width) if int(grid[row][col]) == COOPERATE
-    ]
-    defector_scores = [
-        float(scores[row][col]) for row in range(height) for col in range(width) if int(grid[row][col]) == DEFECT
-    ]
+                    cooperator_frontier_cells += 1
+            if strategy == COOPERATE:
+                cooperator_payoff += scores[row][col]
+                cooperator_count += 1
+            elif strategy == DEFECT:
+                defector_payoff += scores[row][col]
+                defector_count += 1
     return SpatialMetrics(
-        cooperator_clusters=len(components),
-        largest_cooperator_cluster=max((len(component) for component in components), default=0),
-        frontier_cells=len(frontier),
-        cooperator_frontier_cells=len(cooperator_frontier),
-        mean_cooperator_payoff=fmean(cooperator_scores) if cooperator_scores else None,
-        mean_defector_payoff=fmean(defector_scores) if defector_scores else None,
+        cooperator_clusters=len(component_sizes),
+        largest_cooperator_cluster=max(component_sizes, default=0),
+        frontier_cells=frontier_cells,
+        cooperator_frontier_cells=cooperator_frontier_cells,
+        mean_cooperator_payoff=cooperator_payoff / cooperator_count if cooperator_count else None,
+        mean_defector_payoff=defector_payoff / defector_count if defector_count else None,
     )
 
 

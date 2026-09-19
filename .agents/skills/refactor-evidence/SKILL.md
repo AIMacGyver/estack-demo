@@ -6,19 +6,63 @@ description: Profiles CPU and memory, benchmarks representative workloads, and r
 # Refactor from evidence
 
 Use measurements to select one refactor. Metrics are leads, not instructions.
-Do not change behavior, thresholds, payoffs, `simulate()`, or the golden run
-unless the Estack lock explicitly allows it.
+This skill is only for structural, maintainability, CPU, and memory changes.
+
+## Non-overridable behavior boundary
+
+Do not change observable behavior under this skill. This includes:
+
+- public APIs, CLI flags/output, file formats, ordering, and exception behavior
+- RNG seeds, streams, tie-breaking, thresholds, prompts, decisions, and defaults
+- filesystem, network, subprocess, environment, or logging side effects
+- dependencies visible to runtime users
+- payoffs, `simulate()`, and the locked golden run
+
+Capture at least one representative end-to-end command before editing and run
+the identical command afterward. Compare exit status and complete observable
+output/artifacts. Add characterization tests where intent is not already locked.
+Any unexplained difference requires reverting the refactor. Behavioral work must
+use a separate task, branch, and skill; an Estack lock cannot override this rule.
+
+## Default evidence gates
+
+Read [`thresholds.toml`](thresholds.toml) before writing the Estack lock. By
+default:
+
+- require 2 independent corroborating signals
+- investigate CPU/allocation sites at or above 10% share
+- review cyclomatic complexity at or above 11, or cognitive complexity at or above 20
+- repeat baseline and after measurements at least 3 times
+- ship only with at least 10% median improvement
+- reject regressions above 5% in another tracked metric
+
+If eligibility gates are not met, record the evidence and move on without
+editing code. Complexity alone is never enough.
+
+Users may override numeric defaults, but the request must name each threshold,
+provide its numeric replacement, and explain why it fits the workload. Copy the
+override into the Estack lock. Vague permission such as “YOLO,” “use your
+judgment,” “ignore the gates,” or “optimize whatever” is invalid. Ask for
+specific values instead. The behavior boundary is never overridable.
+
+Valid override format:
+
+```text
+Override min_median_improvement from 0.10 to 0.07 because this
+platform-bound workload has three-run median noise below 0.01.
+```
 
 ## Workflow
 
-1. Write the Estack Goal / Scope / Done card.
+1. Read `thresholds.toml`; write its applicable gates and any valid overrides
+   into the Estack Goal / Scope / Done card.
 2. State one hypothesis and choose a representative command or benchmark.
-3. Run `uv run pytest` before changing code.
+3. Run `uv run pytest` and the representative end-to-end command before changing code.
 4. Gather only the evidence relevant to the hypothesis.
-5. Select one hotspot where runtime evidence and maintainability evidence agree.
+5. Select one hotspot only when the eligibility gates pass.
 6. Make the smallest behavior-preserving change.
-7. Re-run correctness and the exact same measurement.
-8. Report before/after values, variance, and anything that did not improve.
+7. Re-run correctness, end-to-end behavior, and the exact same measurement.
+8. Revert if behavior differs or ship gates fail; otherwise report the proof.
 
 Install tools with:
 

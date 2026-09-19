@@ -24,6 +24,19 @@ def test_uniform_defection_has_no_cooperator_cluster():
     assert metrics.mean_defector_payoff == 8.0
 
 
+def test_degenerate_tori_keep_distinct_frontier_semantics():
+    single = analyze_grid([[C]])
+    assert single.cooperator_clusters == 1
+    assert single.frontier_cells == 0
+    assert single.mean_cooperator_payoff == 24.0
+
+    strip = analyze_grid([[C, D]])
+    assert strip.cooperator_clusters == 1
+    assert strip.largest_cooperator_cluster == 1
+    assert strip.frontier_cells == 2
+    assert strip.cooperator_frontier_cells == 1
+
+
 def test_toroidal_corner_cooperators_form_one_moore_cluster():
     grid = [
         [C, D, C],
