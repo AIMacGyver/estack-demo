@@ -26,6 +26,8 @@ env/
 .coverage
 htmlcov/
 .tox/
+.profiles/
+.benchmarks/
 
 # OS
 .DS_Store

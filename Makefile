@@ -1,4 +1,4 @@
-.PHONY: sync lint format test hooks
+.PHONY: sync lint format test hooks analysis-sync analysis-static benchmark
 
 sync:
 	uv sync --group dev
@@ -15,3 +15,15 @@ test:
 
 hooks:
 	uv run pre-commit install
+
+analysis-sync:
+	uv sync --group analysis
+
+analysis-static:
+	uv run --group analysis vulture src tests --min-confidence 100
+	uv run --group analysis radon cc src -s -a
+	uv run --group analysis radon mi src -s
+	uv run --group analysis complexipy src --max-complexity-allowed 60
+
+benchmark:
+	uv run --group analysis pytest benchmarks --benchmark-only --benchmark-sort=mean
