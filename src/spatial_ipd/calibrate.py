@@ -12,6 +12,7 @@ from random import Random
 from statistics import fmean
 
 from spatial_ipd.engine import Grid, cooperation_rate, step
+from spatial_ipd.judgments import RESIST_YES_THRESHOLD
 from spatial_ipd.label import load_dotenv
 from spatial_ipd.local_llm import (
     DEFAULT_LOCAL_LLM_ENDPOINT,
@@ -211,6 +212,8 @@ def run_calibration(
                 "resist_signal": probe["resist_signal"],
                 "resist_confidence": probe["resist_confidence"],
                 "resist_probability": resist_true_probability(probe),
+                "resist_decision": float(probe["resist_signal"]) >= RESIST_YES_THRESHOLD,
+                "applied": probe["applied"],
                 **asdict(outcome),
             }
         )

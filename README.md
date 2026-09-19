@@ -175,6 +175,19 @@ uv run python -m spatial_ipd.calibrate \
 
 Each JSON event includes both future trajectories, the outcome label, confidence provenance, and probability oriented as `P(resist=true)`. The final record reports Brier score and binary log loss over resolved outcomes; exact ties are reported and excluded. Use `--backend jev` or the same local-model flags as the probe command for live diagnostics. The built-in motif set is intentionally tiny, so its summary sets `calibration_claim_supported=false`; it is plumbing and evidence, not a scientific calibration claim.
 
+Build a fuller reliability report from one or more captured calibration runs:
+
+```bash
+uv run python -m spatial_ipd.calibrate \
+  --backend random --seed 1 --horizon 3 > calibration.jsonl
+
+uv run python -m spatial_ipd.reliability \
+  --jsonl calibration.jsonl \
+  --bins 10 --confidence-threshold 0.8 --minimum-events 50
+```
+
+The report separates Brier/log loss, expected calibration error and reliability bins, confidence-gated coverage/selective accuracy, and consistency between the backend's resist decision and its oriented probability. Ties never become labels. `calibration_claim_supported` requires the configured minimum resolved sample and both positive and negative outcomes.
+
 ### Run the separate active-agent arena
 
 The Nowak–May engine remains unchanged. A separate repeated-game arena lets policies actively choose C or D from bounded match history:
