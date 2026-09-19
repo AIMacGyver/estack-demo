@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "simulation": {
+    "height": 8,
+    "width": 8,
+    "generations": 10,
+    "mutation_rate": 0.02,
+    "cooperate_p": 0.5
+  },
+  "thinker": {
+    "think_every": 5,
+    "think_last": 0,
+    "sticky": 0,
+    "thinkers": 2,
+    "seats": "frontier"
+  },
+  "seeds": [1, 2, 3],
+  "backends": [
+    {
+      "id": "plain",
+      "kind": "baseline"
+    },
+    {
+      "id": "random-control",
+      "kind": "random"
+    }
+  ]
+}

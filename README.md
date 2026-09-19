@@ -130,6 +130,19 @@ uv run python -m spatial_ipd.think \
 
 Replay validates call order, state, question IDs, and full consumption. Changed simulation arguments fail clearly instead of silently applying a decision to the wrong seat.
 
+### Run reproducible backend experiments
+
+The versioned manifest in `examples/experiment.json` expands fixed simulation settings across repeated seeds and backend definitions. Results append to resumable JSONL; the compact CSV is regenerated with the latest result for each stable run ID.
+
+```bash
+uv run python -m spatial_ipd.experiment \
+  --manifest examples/experiment.json \
+  --jsonl runs.jsonl \
+  --csv summary.csv
+```
+
+Successful IDs are skipped on rerun; failures are recorded and retried later without repeating successful live calls. JSONL rows include the full cooperation trajectory, normalized trapezoidal AUC, final cooperation, thinker counters, elapsed time, backend metadata, and isolated errors. The example is API-free (`baseline` and seeded `random`). Manifests may also use `jev` or `local`; local entries require `model` and may set `endpoint`, `timeout`, and `reasoning_effort`. Credentials still come only from environment variables or the gitignored `.env`.
+
 Viewer outlines thinker seats in gold when `--think-every` is set (`--seats` works there too).
 
 ```python
