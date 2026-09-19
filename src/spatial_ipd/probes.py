@@ -64,6 +64,18 @@ SCENARIOS = (
         seat=(1, 1),
     ),
     ProbeScenario(
+        id="pivotal_cluster_hold",
+        description="A boundary cooperator is pivotal: one hold delays total collapse.",
+        before=(
+            (0, 0, 1, 1, 1),
+            (0, 0, 1, 1, 1),
+            (0, 0, 1, 1, 1),
+            (1, 0, 0, 1, 1),
+            (0, 0, 1, 1, 1),
+        ),
+        seat=(2, 3),
+    ),
+    ProbeScenario(
         id="toroidal_cluster_recovery",
         description="A seam defector copies an insulated cooperative cluster and becomes C.",
         before=(

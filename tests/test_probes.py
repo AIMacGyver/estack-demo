@@ -45,6 +45,7 @@ def test_scenario_catalog_has_code_derived_named_transitions():
     assert transitions == {
         "lone_defector_invasion": "C->D",
         "isolated_cooperator_collapse": "C->D",
+        "pivotal_cluster_hold": "C->D",
         "toroidal_cluster_recovery": "D->C",
         "stable_cluster_boundary": "C->C",
         "uniform_cooperation": "C->C",
@@ -56,7 +57,7 @@ def test_fake_backend_holds_only_real_c_to_d_scenarios():
     results = run_probes(client)
     by_name = {result["scenario"]: result for result in results}
 
-    for name in ("lone_defector_invasion", "isolated_cooperator_collapse"):
+    for name in ("lone_defector_invasion", "isolated_cooperator_collapse", "pivotal_cluster_hold"):
         assert by_name[name]["transition"] == "C->D"
         assert by_name[name]["act"] == "hold"
         assert by_name[name]["applied"] is True
@@ -70,7 +71,8 @@ def test_fake_backend_holds_only_real_c_to_d_scenarios():
 
     assert len(client.calls) == len(SCENARIOS)
     assert "resist_0" in client.calls[0][1]
-    assert "resist_0" not in client.calls[2][1]
+    assert "resist_0" in client.calls[2][1]
+    assert "resist_0" not in client.calls[3][1]
 
 
 def test_probe_output_includes_state_scores_and_confidence_provenance():
