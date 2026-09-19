@@ -32,6 +32,12 @@ from spatial_ipd.local_llm import (
 )
 from spatial_ipd.neighborhood import moore_neighbors
 from spatial_ipd.payoffs import COOPERATE, DEFECT
+from spatial_ipd.replay import (
+    DecisionRecord,
+    ReplayThinkerClient,
+    capture_decision_record,
+    write_decision_records,
+)
 
 SEAT_RANDOM = "random"
 SEAT_FRONTIER = "frontier"
@@ -99,6 +105,7 @@ class ThinkerStats:
     last_decisions: tuple[ThinkerDecision, ...] = field(default_factory=tuple)
     all_decisions: list[ThinkerDecision] = field(default_factory=list)
     backend_audits: list[BackendAudit] = field(default_factory=list)
+    decision_records: list[DecisionRecord] = field(default_factory=list)
 
 
 def patch3(grid: Grid, row: int, col: int) -> list[list[int]]:
@@ -454,6 +461,7 @@ def think_after_step(
         response = client.system_one(state=state, questions=qs)
 
     tally.calls += 1
+    tally.decision_records.append(capture_decision_record(state, qs, response))
     raw_output = getattr(response, "raw_output", None)
     if isinstance(raw_output, str):
         tally.backend_audits.append(
@@ -672,8 +680,19 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         choices=LOCAL_LLM_REASONING_EFFORTS,
         help="Optional OpenAI reasoning control; use 'none' to disable thinking models.",
     )
+    decisions = parser.add_mutually_exclusive_group()
+    decisions.add_argument(
+        "--record-decisions",
+        metavar="PATH",
+        help="Write each successful thinker call as versioned JSONL.",
+    )
+    decisions.add_argument(
+        "--replay-decisions",
+        metavar="PATH",
+        help="Replay versioned JSONL without calling a live thinker backend.",
+    )
     args = parser.parse_args(argv)
-    if args.backend == BACKEND_LOCAL and not args.local_model:
+    if args.backend == BACKEND_LOCAL and not args.local_model and not args.replay_decisions:
         parser.error("--local-model is required when --backend local")
     return args
 
@@ -687,7 +706,13 @@ def main(
     """Run Spatial IPD with optional Jev thinker overrides."""
     load_dotenv()
     args = parse_args(argv)
-    if client is None and args.backend == BACKEND_RANDOM:
+    replay_client = None
+    if args.replay_decisions:
+        if client is not None:
+            raise ValueError("--replay-decisions cannot be combined with an injected client")
+        replay_client = ReplayThinkerClient.from_path(args.replay_decisions)
+        client = replay_client
+    elif client is None and args.backend == BACKEND_RANDOM:
         client = RandomThinkerClient(seed=args.seed)
     elif client is None and args.backend == BACKEND_LOCAL:
         client = LocalLLMThinkerClient(
@@ -714,6 +739,10 @@ def main(
         questions=questions,
         seat_mode=args.seats,
     )
+    if replay_client is not None:
+        replay_client.assert_exhausted()
+    if args.record_decisions:
+        write_decision_records(args.record_decisions, stats.decision_records)
     if args.compare:
         plain = simulate(**kwargs)
         print(format_compare_summary(plain, result, stats))
@@ -722,6 +751,10 @@ def main(
     if args.verbose:
         for item in stats.all_decisions:
             print(format_decision_line(item))
+    if args.record_decisions:
+        print(f"decision_records_written={len(stats.decision_records)} path={args.record_decisions}")
+    elif args.replay_decisions:
+        print(f"decision_records_replayed={replay_client.consumed} path={args.replay_decisions}")
     return 0
 
 
