@@ -143,6 +143,16 @@ uv run python -m spatial_ipd.experiment \
 
 Successful IDs are skipped on rerun; failures are recorded and retried later without repeating successful live calls. JSONL rows include the full cooperation trajectory, normalized trapezoidal AUC, final cooperation, thinker counters, elapsed time, backend metadata, and isolated errors. The example is API-free (`baseline` and seeded `random`). Manifests may also use `jev` or `local`; local entries require `model` and may set `endpoint`, `timeout`, and `reasoning_effort`. Credentials still come only from environment variables or the gitignored `.env`.
 
+### Probe deterministic motifs
+
+Send the same named, code-derived situations through a thinker backend and print one inspectable JSON object per motif:
+
+```bash
+uv run python -m spatial_ipd.probes --backend random --seed 1
+```
+
+The catalog covers lone-defector invasion, isolated-cooperator collapse, toroidal cluster recovery, a stable mixed boundary, and uniform cooperation. Use `--backend jev` or `--backend local --local-model qwen3:8b --local-reasoning-effort none` for live comparisons. Tests lock only the engine-derived strategy transitions and fake-client mapping—not stochastic live-model answers.
+
 Viewer outlines thinker seats in gold when `--think-every` is set (`--seats` works there too).
 
 ```python
