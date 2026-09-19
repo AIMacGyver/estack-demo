@@ -124,6 +124,10 @@ def test_manifest_writes_jsonl_and_compact_csv(tmp_path):
     assert all(record["status"] == "success" for record in records)
     assert all(len(record["cooperation_rates"]) == 3 for record in records)
     assert all(0.0 <= record["cooperation_auc"] <= 1.0 for record in records)
+    assert all(0.0 <= record["cooperation_persistence"] <= 1.0 for record in records)
+    assert all(record["cooperator_clusters"] >= 0 for record in records)
+    assert all(record["largest_cooperator_cluster"] >= 0 for record in records)
+    assert all(record["frontier_cells"] >= 0 for record in records)
 
     with csv_path.open(encoding="utf-8", newline="") as handle:
         rows = list(csv.DictReader(handle))
@@ -134,6 +138,8 @@ def test_manifest_writes_jsonl_and_compact_csv(tmp_path):
         ("random", "1"),
         ("random", "2"),
     }
+    assert "largest_cooperator_cluster" in rows[0]
+    assert "mean_cooperator_payoff" in rows[0]
 
 
 def test_rerun_skips_successful_ids_without_duplicate_rows(tmp_path):
