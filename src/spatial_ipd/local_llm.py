@@ -13,6 +13,16 @@ from urllib.request import Request, urlopen
 DEFAULT_LOCAL_LLM_ENDPOINT = "http://localhost:11434/v1/chat/completions"
 DEFAULT_LOCAL_LLM_TIMEOUT = 30.0
 LOCAL_LLM_REASONING_EFFORTS = ("none", "low", "medium", "high")
+LOCAL_LLM_PROMPT_PROFILES = {
+    "cluster_guard_v1": (
+        "A mixed patch or changed strategy is worth thinking about. Resist means a C-to-D "
+        "cell should stay C to preserve a cooperating group despite the higher-scoring neighbor."
+    ),
+    "score_defer_v1": (
+        "Treat imitate-the-best as strong evidence. Mark resist true only when the post-imitation "
+        "patch still contains a clear adjacent cooperating group that the focal hold can join."
+    ),
+}
 
 JsonObject = Mapping[str, Any]
 Transport = Callable[[str, JsonObject, Mapping[str, str], float], object]
@@ -190,6 +200,9 @@ class LocalLLMThinkerClient:
         api_key: str | None = None,
         timeout: float = DEFAULT_LOCAL_LLM_TIMEOUT,
         reasoning_effort: str | None = None,
+        prompt_profile: str = "cluster_guard_v1",
+        temperature: float = 0.0,
+        max_tokens: int | None = None,
         transport: Transport | None = None,
     ):
         """Bind local model configuration and an injectable JSON transport."""
@@ -201,11 +214,20 @@ class LocalLLMThinkerClient:
             raise ValueError("local timeout must be positive")
         if reasoning_effort is not None and reasoning_effort not in LOCAL_LLM_REASONING_EFFORTS:
             raise ValueError(f"local reasoning effort must be one of {LOCAL_LLM_REASONING_EFFORTS}")
+        if prompt_profile not in LOCAL_LLM_PROMPT_PROFILES:
+            raise ValueError(f"local prompt profile must be one of {tuple(LOCAL_LLM_PROMPT_PROFILES)}")
+        if not 0.0 <= temperature <= 2.0:
+            raise ValueError("local temperature must be in [0, 2]")
+        if max_tokens is not None and max_tokens < 1:
+            raise ValueError("local max_tokens must be positive")
         self.model = model
         self.endpoint = endpoint
         self.api_key = api_key
         self.timeout = timeout
         self.reasoning_effort = reasoning_effort
+        self.prompt_profile = prompt_profile
+        self.temperature = temperature
+        self.max_tokens = max_tokens
         self._transport = transport or _post_json
 
     def system_one(self, state: object, questions: Mapping[str, object]) -> SimpleNamespace:
@@ -232,8 +254,8 @@ class LocalLLMThinkerClient:
                         "does not choose the action. Use null for resist and resist_confidence when a resist "
                         "question id is absent. "
                         "cluster_fragility is from 0 (stable/absent cooperation) to 2 (very fragile). "
-                        "A mixed patch or changed strategy is worth thinking about. Resist means a C-to-D "
-                        "cell should stay C to preserve a cooperating group despite the higher-scoring neighbor."
+                        f"Decision profile `{self.prompt_profile}`: "
+                        f"{LOCAL_LLM_PROMPT_PROFILES[self.prompt_profile]}"
                     ),
                 },
                 {
@@ -249,10 +271,12 @@ class LocalLLMThinkerClient:
                 },
             ],
             "stream": False,
-            "temperature": 0,
+            "temperature": self.temperature,
         }
         if self.reasoning_effort is not None:
             payload["reasoning_effort"] = self.reasoning_effort
+        if self.max_tokens is not None:
+            payload["max_tokens"] = self.max_tokens
         headers = {"Content-Type": "application/json"}
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"

@@ -19,6 +19,7 @@ from spatial_ipd.label import load_dotenv
 from spatial_ipd.local_llm import (
     DEFAULT_LOCAL_LLM_ENDPOINT,
     DEFAULT_LOCAL_LLM_TIMEOUT,
+    LOCAL_LLM_PROMPT_PROFILES,
     LOCAL_LLM_REASONING_EFFORTS,
     LocalLLMThinkerClient,
 )
@@ -158,11 +159,29 @@ def _backend_config(value: object, index: int) -> dict[str, object]:
         reasoning_effort = value.get("reasoning_effort")
         if reasoning_effort is not None and reasoning_effort not in LOCAL_LLM_REASONING_EFFORTS:
             raise ExperimentError(f"backends[{index}].reasoning_effort must be one of {LOCAL_LLM_REASONING_EFFORTS}")
+        prompt_profile = value.get("prompt_profile", "cluster_guard_v1")
+        if prompt_profile not in LOCAL_LLM_PROMPT_PROFILES:
+            raise ExperimentError(f"backends[{index}].prompt_profile must be one of {tuple(LOCAL_LLM_PROMPT_PROFILES)}")
+        temperature = _require_float(
+            value.get("temperature", 0.0),
+            f"backends[{index}].temperature",
+            minimum=0.0,
+            maximum=2.0,
+        )
+        max_tokens_value = value.get("max_tokens")
+        max_tokens = (
+            _require_int(max_tokens_value, f"backends[{index}].max_tokens", minimum=1)
+            if max_tokens_value is not None
+            else None
+        )
         backend.update(
             model=model,
             endpoint=endpoint,
             timeout=timeout,
             reasoning_effort=reasoning_effort,
+            prompt_profile=prompt_profile,
+            temperature=temperature,
+            max_tokens=max_tokens,
         )
     return backend
 
@@ -266,6 +285,9 @@ def _default_client(backend: Mapping[str, object], seed: int) -> object | None:
             api_key=os.environ.get("LOCAL_LLM_API_KEY"),
             timeout=float(backend["timeout"]),
             reasoning_effort=backend.get("reasoning_effort"),
+            prompt_profile=str(backend["prompt_profile"]),
+            temperature=float(backend["temperature"]),
+            max_tokens=backend.get("max_tokens"),
         )
     return None
 
@@ -344,6 +366,7 @@ def execute_run(
         "cooperation_persistence": cooperation_persistence(result.cooperation_rates),
         **asdict(spatial),
         **telemetry_summary(stats.backend_telemetry),
+        "decisions": [asdict(decision) for decision in stats.all_decisions],
         "think_calls": stats.calls,
         "holds": stats.holds,
         "flips": stats.flips,

@@ -67,6 +67,9 @@ def test_local_client_posts_boolean_decisions_and_separate_confidence():
         api_key="secret",
         timeout=4.5,
         reasoning_effort="none",
+        prompt_profile="score_defer_v1",
+        temperature=0.4,
+        max_tokens=256,
         transport=transport,
     )
     response = client.system_one(_state(), _question_ids())
@@ -76,8 +79,10 @@ def test_local_client_posts_boolean_decisions_and_separate_confidence():
     assert endpoint == "http://model.test/v1/chat/completions"
     assert payload["model"] == "qwen3:8b"
     assert payload["stream"] is False
-    assert payload["temperature"] == 0
+    assert payload["temperature"] == 0.4
     assert payload["reasoning_effort"] == "none"
+    assert payload["max_tokens"] == 256
+    assert "score_defer_v1" in payload["messages"][0]["content"]
     assert payload["messages"][0]["role"] == "system"
     assert '"generation":5' in payload["messages"][1]["content"]
     assert headers["Authorization"] == "Bearer secret"
