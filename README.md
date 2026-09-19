@@ -34,13 +34,14 @@ uv run python -m spatial_ipd.export \
 
 ### 3. Optional viewer
 
-Needs a display. Blue = Cooperate, red = Defect. Space pauses, `r` resets, `q` / Esc quits.
+Needs a display. Blue = Cooperate, red = Defect. Space pauses, `n` single-steps, `r` resets, click selects a cell, `c` clears selection, and `q` / Esc quits.
 
 ```bash
 uv sync --extra viewer
 uv run python -m spatial_ipd.viewer \
   --height 32 --width 32 --seed 42 \
-  --mutation-rate 0.01 --cell-size 12 --fps 8
+  --mutation-rate 0.01 --cell-size 12 --fps 8 \
+  --think-every 5 --thinkers 4 --backend random
 ```
 
 ## Model
@@ -184,7 +185,7 @@ uv run python -m spatial_ipd.arena --rounds 20
 
 The deterministic round robin includes Always Cooperate, Always Defect, Tit-for-Tat, Pavlov (win-stay/lose-shift), and forgiving TFT. JSON match records include both action histories, payoffs, cooperation rates, and mutual-cooperation rounds. This is the stable policy seam for later memory or mixed-population experiments—not a replacement for the spatial engine.
 
-Viewer outlines thinker seats in gold when `--think-every` is set (`--seats` works there too).
+The viewer accepts `--backend random|jev|local` when `--think-every` is set (`--seats` works there too). Applied holds are outlined green, other thinker decisions gold, and the selected cell cyan; its strategy and payoff appear in the title. The lower panel plots cooperation (blue) and largest-cluster share (green). Local uses the same `--local-model`, endpoint, timeout, and reasoning flags as other thinker commands.
 
 ```python
 from spatial_ipd import simulate
