@@ -9,9 +9,11 @@ import json
 import os
 import re
 from collections.abc import Callable, Mapping, Sequence
+from dataclasses import asdict
 from pathlib import Path
 from time import perf_counter
 
+from spatial_ipd.analytics import analyze_grid, cooperation_persistence
 from spatial_ipd.engine import SimulationResult, simulate
 from spatial_ipd.label import load_dotenv
 from spatial_ipd.local_llm import (
@@ -34,6 +36,13 @@ CSV_FIELDS = (
     "status",
     "final_cooperation_rate",
     "cooperation_auc",
+    "cooperation_persistence",
+    "cooperator_clusters",
+    "largest_cooperator_cluster",
+    "frontier_cells",
+    "cooperator_frontier_cells",
+    "mean_cooperator_payoff",
+    "mean_defector_payoff",
     "think_calls",
     "holds",
     "flips",
@@ -309,6 +318,7 @@ def execute_run(
             "error_type": type(exc).__name__,
             "error": str(exc),
         }
+    spatial = analyze_grid([list(row) for row in result.grid])
     return {
         **base,
         "status": "success",
@@ -316,6 +326,8 @@ def execute_run(
         "cooperation_rates": list(result.cooperation_rates),
         "final_cooperation_rate": result.final_cooperation_rate,
         "cooperation_auc": cooperation_auc(result.cooperation_rates),
+        "cooperation_persistence": cooperation_persistence(result.cooperation_rates),
+        **asdict(spatial),
         "think_calls": stats.calls,
         "holds": stats.holds,
         "flips": stats.flips,
@@ -356,6 +368,13 @@ def _csv_row(record: Mapping[str, object]) -> dict[str, object]:
         "status": record["status"],
         "final_cooperation_rate": record.get("final_cooperation_rate", ""),
         "cooperation_auc": record.get("cooperation_auc", ""),
+        "cooperation_persistence": record.get("cooperation_persistence", ""),
+        "cooperator_clusters": record.get("cooperator_clusters", ""),
+        "largest_cooperator_cluster": record.get("largest_cooperator_cluster", ""),
+        "frontier_cells": record.get("frontier_cells", ""),
+        "cooperator_frontier_cells": record.get("cooperator_frontier_cells", ""),
+        "mean_cooperator_payoff": record.get("mean_cooperator_payoff", ""),
+        "mean_defector_payoff": record.get("mean_defector_payoff", ""),
         "think_calls": record.get("think_calls", ""),
         "holds": record.get("holds", ""),
         "flips": record.get("flips", ""),
