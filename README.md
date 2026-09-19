@@ -226,3 +226,15 @@ uv run pytest
 ```
 
 Optional extras: `uv sync --extra typesafe` and/or `--extra viewer`. Copy `.env.example` to `.env` for a TypeSafe key (gitignored).
+
+### Evidence-first refactoring
+
+Install the optional analysis stack and run its static/benchmark entry points:
+
+```bash
+make analysis-sync
+make analysis-static
+make benchmark
+```
+
+The project skill [`refactor-evidence`](.agents/skills/refactor-evidence/SKILL.md) defines the CPU, memory, benchmark, dead-code, and complexity workflow. Research rationale and initial complexity observations live in [`docs/analysis-tooling.md`](docs/analysis-tooling.md). Generated profiles and benchmark baselines are gitignored.

@@ -8,3 +8,7 @@ This repo is an Estack dry-run. On a concrete coding task, follow the project sk
 Stay in this checkout. Do not spawn a Cloud Agent unless the user asks.
 
 TypeSafe/Jev ([`.agents/skills/typesafe-ai/SKILL.md`](.agents/skills/typesafe-ai/SKILL.md)) is for snap judgments, not for scoping the job.
+
+For code review, profiling, or refactoring work, use
+[`.agents/skills/refactor-evidence/SKILL.md`](.agents/skills/refactor-evidence/SKILL.md)
+to gather CPU, memory, benchmark, dead-code, and complexity evidence before edits.
