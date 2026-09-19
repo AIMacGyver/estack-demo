@@ -94,7 +94,21 @@ uv run python -m spatial_ipd.think \
   --seats frontier --backend random --compare --verbose
 ```
 
-`--compare` prints plain `simulate()` vs the thinker run. `--verbose` prints each seat’s act, worth, resist noul (`n/a` when the seat was not C→D), and the imitate scores.
+**Local LLM** (no Python extra): any model behind an OpenAI-compatible chat-completions endpoint can answer the same bounded worth/resist questions. This Ollama example uses the default endpoint, `http://localhost:11434/v1/chat/completions`:
+
+```bash
+uv run python -m spatial_ipd.think \
+  --height 16 --width 16 --generations 30 \
+  --seed 1 --mutation-rate 0.02 \
+  --think-every 5 --think-last 5 --sticky 5 --thinkers 4 \
+  --seats frontier --backend local --local-model qwen3:8b \
+  --local-reasoning-effort none \
+  --compare --verbose
+```
+
+Use `--local-endpoint URL` and `--local-timeout SECONDS` for another server. `--local-reasoning-effort none` prevents thinking-capable Ollama models from spending the request on hidden reasoning; omit it for servers that do not support the OpenAI reasoning field. If the endpoint requires bearer authentication, set `LOCAL_LLM_API_KEY` in the environment or gitignored local `.env`. Invalid HTTP/OpenAI responses and malformed decision JSON fail with a `LocalLLMError`. The model must choose boolean worth/resist actions; code maps those actions into the existing gate. It also reports `[0, 1]` confidence separately for inspection, tagged `llm_self_report` because it is not a calibrated probability. Raw local output remains available in `ThinkerStats.backend_audits`.
+
+`--compare` prints plain `simulate()` vs the thinker run. `--verbose` prints each seat’s act, confidence provenance, worth/resist signals and confidence (`n/a` when resist was not asked), and the imitate scores.
 
 Viewer outlines thinker seats in gold when `--think-every` is set (`--seats` works there too).
 

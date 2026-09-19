@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from random import Random
@@ -23,6 +24,12 @@ from spatial_ipd.judgments import (
     typesafe_thinker_questions,
 )
 from spatial_ipd.label import load_dotenv
+from spatial_ipd.local_llm import (
+    DEFAULT_LOCAL_LLM_ENDPOINT,
+    DEFAULT_LOCAL_LLM_TIMEOUT,
+    LOCAL_LLM_REASONING_EFFORTS,
+    LocalLLMThinkerClient,
+)
 from spatial_ipd.neighborhood import moore_neighbors
 from spatial_ipd.payoffs import COOPERATE, DEFECT
 
@@ -30,8 +37,9 @@ SEAT_RANDOM = "random"
 SEAT_FRONTIER = "frontier"
 SEAT_MODES = (SEAT_RANDOM, SEAT_FRONTIER)
 BACKEND_JEV = "jev"
+BACKEND_LOCAL = "local"
 BACKEND_RANDOM = "random"
-BACKENDS = (BACKEND_JEV, BACKEND_RANDOM)
+BACKENDS = (BACKEND_JEV, BACKEND_LOCAL, BACKEND_RANDOM)
 
 
 def _copy_grid(grid: Grid) -> Grid:
@@ -40,7 +48,7 @@ def _copy_grid(grid: Grid) -> Grid:
 
 @dataclass(frozen=True)
 class ThinkerDecision:
-    """One Jev decision for a thinker seat after imitation."""
+    """One backend decision for a thinker seat after imitation."""
 
     generation: int
     row: int
@@ -55,6 +63,18 @@ class ThinkerDecision:
     focal_score: int = 0
     best_neighbor_score: int = 0
     best_neighbor_strategy: int = 0
+    worth_confidence: float | None = None
+    resist_confidence: float | None = None
+    confidence_kind: str = "jev_noul"
+
+
+@dataclass(frozen=True)
+class BackendAudit:
+    """Raw backend output retained with its generation and confidence semantics."""
+
+    generation: int
+    confidence_kind: str
+    raw_output: str
 
 
 @dataclass(frozen=True)
@@ -78,6 +98,7 @@ class ThinkerStats:
     last_seats: tuple[tuple[int, int], ...] = ()
     last_decisions: tuple[ThinkerDecision, ...] = field(default_factory=tuple)
     all_decisions: list[ThinkerDecision] = field(default_factory=list)
+    backend_audits: list[BackendAudit] = field(default_factory=list)
 
 
 def patch3(grid: Grid, row: int, col: int) -> list[list[int]]:
@@ -214,7 +235,12 @@ class RandomThinkerClient:
                 nouls[key] = SimpleNamespace(noul=self._rng.random())
             elif key.startswith("cluster_fragility_"):
                 scores[key] = SimpleNamespace(score=self._rng.uniform(0, 2), confidence=0.5)
-        return SimpleNamespace(nouls=nouls, scores=scores, choices={})
+        return SimpleNamespace(
+            nouls=nouls,
+            scores=scores,
+            choices={},
+            confidence_kind="random_draw",
+        )
 
 
 def thinker_question_ids(count: int, resist_indices: Sequence[int]) -> dict[str, None]:
@@ -237,11 +263,7 @@ def resist_indices_for_seats(
     after: Grid,
 ) -> tuple[int, ...]:
     """Thinker indexes that are real C→D copies (the only seats that get resist)."""
-    return tuple(
-        i
-        for i, (row, col) in enumerate(seats)
-        if is_cooperate_to_defect(before[row][col], after[row][col])
-    )
+    return tuple(i for i, (row, col) in enumerate(seats) if is_cooperate_to_defect(before[row][col], after[row][col]))
 
 
 def winning_imitate(grid: Grid, scores: list[list[int]], row: int, col: int) -> tuple[int, int]:
@@ -293,11 +315,22 @@ def decisions_from_response(
 ) -> list[ThinkerDecision]:
     """Map a TypeSafe (or test double) response onto per-seat decisions."""
     scores = score_cells(before)
+    confidence_kind = str(getattr(response, "confidence_kind", "jev_noul"))
     out: list[ThinkerDecision] = []
     for i, (row, col) in enumerate(seats):
-        worth = float(response.nouls[f"worth_thinking_{i}"].noul)
+        worth_answer = response.nouls[f"worth_thinking_{i}"]
+        worth = float(worth_answer.noul)
+        worth_confidence = (
+            float(getattr(worth_answer, "confidence", worth)) if confidence_kind == "llm_self_report" else worth
+        )
         resist_key = f"resist_{i}"
-        resist = float(response.nouls[resist_key].noul) if resist_key in response.nouls else 0.0
+        resist_answer = response.nouls.get(resist_key)
+        resist = float(resist_answer.noul) if resist_answer is not None else 0.0
+        resist_confidence = (
+            float(getattr(resist_answer, "confidence", resist))
+            if resist_answer is not None and confidence_kind == "llm_self_report"
+            else (resist if resist_answer is not None else None)
+        )
         pre = int(before[row][col])
         mid = int(after[row][col])
         applied = should_resist(worth, resist, pre, mid)
@@ -319,6 +352,9 @@ def decisions_from_response(
                 focal_score=int(scores[row][col]),
                 best_neighbor_score=best_score,
                 best_neighbor_strategy=best_strategy,
+                worth_confidence=worth_confidence,
+                resist_confidence=resist_confidence,
+                confidence_kind=confidence_kind,
             )
         )
     return out
@@ -418,6 +454,15 @@ def think_after_step(
         response = client.system_one(state=state, questions=qs)
 
     tally.calls += 1
+    raw_output = getattr(response, "raw_output", None)
+    if isinstance(raw_output, str):
+        tally.backend_audits.append(
+            BackendAudit(
+                generation=generation,
+                confidence_kind=str(getattr(response, "confidence_kind", "unknown")),
+                raw_output=raw_output,
+            )
+        )
     decisions = decisions_from_response(seats, before, after, response, generation=generation)
     tally.last_decisions = tuple(decisions)
     tally.all_decisions.extend(decisions)
@@ -539,14 +584,17 @@ def format_compare_summary(plain: SimulationResult, think: SimulationResult, sta
 def format_decision_line(item: ThinkerDecision) -> str:
     """One inspectable line for a single thinker seat."""
     applied = "yes" if item.applied else "no"
+    worth_confidence = item.worth_thinking if item.worth_confidence is None else item.worth_confidence
     resist = (
-        f"resist={item.act_confidence}"
+        f"resist={item.act_confidence} "
+        f"resist_confidence={item.act_confidence if item.resist_confidence is None else item.resist_confidence}"
         if is_cooperate_to_defect(item.before, item.after_imitate)
-        else "resist=n/a"
+        else "resist=n/a resist_confidence=n/a"
     )
     return (
         f"gen={item.generation} row={item.row} col={item.col} "
-        f"act={item.act} worth={item.worth_thinking} {resist} "
+        f"act={item.act} confidence_kind={item.confidence_kind} "
+        f"worth={item.worth_thinking} worth_confidence={worth_confidence} {resist} "
         f"focal_score={item.focal_score} best_neighbor_score={item.best_neighbor_score} "
         f"best_neighbor_strategy={item.best_neighbor_strategy} "
         f"applied={applied} before={item.before} after_imitate={item.after_imitate} "
@@ -602,9 +650,32 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--backend",
         choices=BACKENDS,
         default=BACKEND_JEV,
-        help="jev = TypeSafe (needs TYPESAFE_API_KEY); random = seeded Uniform[0,1] control.",
+        help=("jev = TypeSafe; local = OpenAI-compatible chat completions; random = seeded Uniform[0,1] control."),
     )
-    return parser.parse_args(argv)
+    parser.add_argument(
+        "--local-model",
+        help="Model name for --backend local (for example qwen3:8b).",
+    )
+    parser.add_argument(
+        "--local-endpoint",
+        default=DEFAULT_LOCAL_LLM_ENDPOINT,
+        help=f"Full OpenAI-compatible chat-completions URL (default: {DEFAULT_LOCAL_LLM_ENDPOINT}).",
+    )
+    parser.add_argument(
+        "--local-timeout",
+        type=float,
+        default=DEFAULT_LOCAL_LLM_TIMEOUT,
+        help=f"Local endpoint timeout in seconds (default: {DEFAULT_LOCAL_LLM_TIMEOUT:g}).",
+    )
+    parser.add_argument(
+        "--local-reasoning-effort",
+        choices=LOCAL_LLM_REASONING_EFFORTS,
+        help="Optional OpenAI reasoning control; use 'none' to disable thinking models.",
+    )
+    args = parser.parse_args(argv)
+    if args.backend == BACKEND_LOCAL and not args.local_model:
+        parser.error("--local-model is required when --backend local")
+    return args
 
 
 def main(
@@ -618,6 +689,14 @@ def main(
     args = parse_args(argv)
     if client is None and args.backend == BACKEND_RANDOM:
         client = RandomThinkerClient(seed=args.seed)
+    elif client is None and args.backend == BACKEND_LOCAL:
+        client = LocalLLMThinkerClient(
+            args.local_model,
+            endpoint=args.local_endpoint,
+            api_key=os.environ.get("LOCAL_LLM_API_KEY"),
+            timeout=args.local_timeout,
+            reasoning_effort=args.local_reasoning_effort,
+        )
     kwargs = dict(
         height=args.height,
         width=args.width,
