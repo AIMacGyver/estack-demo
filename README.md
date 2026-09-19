@@ -141,7 +141,7 @@ uv run python -m spatial_ipd.experiment \
   --csv summary.csv
 ```
 
-Successful IDs are skipped on rerun; failures are recorded and retried later without repeating successful live calls. JSONL rows include the full cooperation trajectory, normalized trapezoidal AUC, persistence, final cooperator cluster count/size, strategy frontier size, final payoff means by strategy, thinker counters, elapsed time, backend metadata, and isolated errors. The compact CSV carries the same summary metrics. The example is API-free (`baseline` and seeded `random`). Manifests may also use `jev` or `local`; local entries require `model` and may set `endpoint`, `timeout`, and `reasoning_effort`. Credentials still come only from environment variables or the gitignored `.env`.
+Successful IDs are skipped on rerun; failures are recorded and retried later without repeating successful live calls. JSONL rows include the full cooperation trajectory, normalized trapezoidal AUC, persistence, final cooperator cluster count/size, strategy frontier size, final payoff means by strategy, thinker counters, elapsed time, and backend metadata. Per-call telemetry adds backend latency, failure category, raw response bytes, and token usage when the backend provides it. Isolated failures retain timeout/transport/schema classification. The compact CSV carries the same summary metrics. The example is API-free (`baseline` and seeded `random`). Manifests may also use `jev` or `local`; local entries require `model` and may set `endpoint`, `timeout`, and `reasoning_effort`. Credentials still come only from environment variables or the gitignored `.env`.
 
 ### Probe deterministic motifs
 

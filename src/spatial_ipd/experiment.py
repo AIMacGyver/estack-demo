@@ -22,6 +22,7 @@ from spatial_ipd.local_llm import (
     LOCAL_LLM_REASONING_EFFORTS,
     LocalLLMThinkerClient,
 )
+from spatial_ipd.telemetry import telemetry_summary
 from spatial_ipd.think import RandomThinkerClient, ThinkerStats, simulate_with_thinkers
 
 EXPERIMENT_MANIFEST_VERSION = 1
@@ -43,11 +44,20 @@ CSV_FIELDS = (
     "cooperator_frontier_cells",
     "mean_cooperator_payoff",
     "mean_defector_payoff",
+    "backend_calls",
+    "backend_call_seconds",
+    "mean_backend_call_seconds",
+    "backend_call_failures",
+    "raw_response_bytes",
+    "input_tokens",
+    "output_tokens",
+    "total_tokens",
     "think_calls",
     "holds",
     "flips",
     "imitates",
     "elapsed_seconds",
+    "backend_error_category",
     "error_type",
     "error",
 )
@@ -311,13 +321,18 @@ def execute_run(
     try:
         result, stats = _run_simulation(plan, factories)
     except Exception as exc:  # noqa: BLE001 - one backend failure must not stop the manifest
-        return {
+        failure = {
             **base,
             "status": "error",
             "elapsed_seconds": clock() - started,
             "error_type": type(exc).__name__,
             "error": str(exc),
         }
+        backend_telemetry = getattr(exc, "spatial_ipd_backend_telemetry", None)
+        if backend_telemetry is not None:
+            failure.update(telemetry_summary([backend_telemetry]))
+            failure["backend_error_category"] = backend_telemetry.error_category
+        return failure
     spatial = analyze_grid([list(row) for row in result.grid])
     return {
         **base,
@@ -328,6 +343,7 @@ def execute_run(
         "cooperation_auc": cooperation_auc(result.cooperation_rates),
         "cooperation_persistence": cooperation_persistence(result.cooperation_rates),
         **asdict(spatial),
+        **telemetry_summary(stats.backend_telemetry),
         "think_calls": stats.calls,
         "holds": stats.holds,
         "flips": stats.flips,
@@ -375,11 +391,20 @@ def _csv_row(record: Mapping[str, object]) -> dict[str, object]:
         "cooperator_frontier_cells": record.get("cooperator_frontier_cells", ""),
         "mean_cooperator_payoff": record.get("mean_cooperator_payoff", ""),
         "mean_defector_payoff": record.get("mean_defector_payoff", ""),
+        "backend_calls": record.get("backend_calls", ""),
+        "backend_call_seconds": record.get("backend_call_seconds", ""),
+        "mean_backend_call_seconds": record.get("mean_backend_call_seconds", ""),
+        "backend_call_failures": record.get("backend_call_failures", ""),
+        "raw_response_bytes": record.get("raw_response_bytes", ""),
+        "input_tokens": record.get("input_tokens", ""),
+        "output_tokens": record.get("output_tokens", ""),
+        "total_tokens": record.get("total_tokens", ""),
         "think_calls": record.get("think_calls", ""),
         "holds": record.get("holds", ""),
         "flips": record.get("flips", ""),
         "imitates": record.get("imitates", ""),
         "elapsed_seconds": record["elapsed_seconds"],
+        "backend_error_category": record.get("backend_error_category", ""),
         "error_type": record.get("error_type", ""),
         "error": record.get("error", ""),
     }

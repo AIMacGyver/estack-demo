@@ -128,6 +128,8 @@ def test_manifest_writes_jsonl_and_compact_csv(tmp_path):
     assert all(record["cooperator_clusters"] >= 0 for record in records)
     assert all(record["largest_cooperator_cluster"] >= 0 for record in records)
     assert all(record["frontier_cells"] >= 0 for record in records)
+    assert all(record["backend_calls"] == record["think_calls"] for record in records)
+    assert all(record["backend_call_failures"] == 0 for record in records)
 
     with csv_path.open(encoding="utf-8", newline="") as handle:
         rows = list(csv.DictReader(handle))
@@ -140,6 +142,7 @@ def test_manifest_writes_jsonl_and_compact_csv(tmp_path):
     }
     assert "largest_cooperator_cluster" in rows[0]
     assert "mean_cooperator_payoff" in rows[0]
+    assert "mean_backend_call_seconds" in rows[0]
 
 
 def test_rerun_skips_successful_ids_without_duplicate_rows(tmp_path):
@@ -207,6 +210,8 @@ def test_failure_is_isolated_and_retried_while_success_is_skipped(tmp_path):
     error = next(record for record in first_records if record["status"] == "error")
     assert error["error_type"] == "TimeoutError"
     assert error["error"] == "backend timed out"
+    assert error["backend_error_category"] == "timeout"
+    assert error["backend_call_failures"] == 1
 
     second = run_manifest(
         manifest,

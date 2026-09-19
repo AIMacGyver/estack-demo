@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import argparse
 import os
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from random import Random
+from time import perf_counter
 from types import SimpleNamespace
 
 from spatial_ipd.engine import (
@@ -37,6 +38,12 @@ from spatial_ipd.replay import (
     ReplayThinkerClient,
     capture_decision_record,
     write_decision_records,
+)
+from spatial_ipd.telemetry import (
+    BackendCallTelemetry,
+    attach_error_telemetry,
+    telemetry_for_error,
+    telemetry_for_response,
 )
 
 SEAT_RANDOM = "random"
@@ -106,6 +113,7 @@ class ThinkerStats:
     all_decisions: list[ThinkerDecision] = field(default_factory=list)
     backend_audits: list[BackendAudit] = field(default_factory=list)
     decision_records: list[DecisionRecord] = field(default_factory=list)
+    backend_telemetry: list[BackendCallTelemetry] = field(default_factory=list)
 
 
 def patch3(grid: Grid, row: int, col: int) -> list[list[int]]:
@@ -422,6 +430,7 @@ def think_after_step(
     questions: dict | None = None,
     stats: ThinkerStats | None = None,
     seat_mode: str = SEAT_FRONTIER,
+    clock: Callable[[], float] = perf_counter,
 ) -> tuple[Grid, ThinkerStats]:
     """Maybe override a few cells after a normal ``step``."""
     tally = stats if stats is not None else ThinkerStats()
@@ -450,18 +459,45 @@ def think_after_step(
             qs = typesafe_thinker_questions(len(seats), resist_indices=resist_ix)
     else:
         qs = questions
-    if client is None:
-        try:
-            from typesafe_sdk import TypeSafeClient
-        except ImportError as exc:
-            raise ImportError('TypeSafe is optional. Install with: python3 -m pip install -e ".[typesafe]"') from exc
-        with TypeSafeClient() as opened:
-            response = opened.system_one(state=state, questions=qs)
-    else:
-        response = client.system_one(state=state, questions=qs)
+    started = clock()
+    try:
+        if client is None:
+            try:
+                from typesafe_sdk import TypeSafeClient
+            except ImportError as exc:
+                raise ImportError(
+                    'TypeSafe is optional. Install with: python3 -m pip install -e ".[typesafe]"'
+                ) from exc
+            with TypeSafeClient() as opened:
+                response = opened.system_one(state=state, questions=qs)
+        else:
+            response = client.system_one(state=state, questions=qs)
+    except Exception as exc:
+        telemetry = telemetry_for_error(
+            exc,
+            generation=generation,
+            elapsed_seconds=clock() - started,
+        )
+        tally.backend_telemetry.append(telemetry)
+        attach_error_telemetry(exc, telemetry)
+        raise
+
+    try:
+        record = capture_decision_record(state, qs, response)
+        decisions = decisions_from_response(seats, before, after, response, generation=generation)
+    except Exception as exc:
+        telemetry = telemetry_for_response(
+            response,
+            generation=generation,
+            elapsed_seconds=clock() - started,
+            error=exc,
+        )
+        tally.backend_telemetry.append(telemetry)
+        attach_error_telemetry(exc, telemetry)
+        raise
 
     tally.calls += 1
-    tally.decision_records.append(capture_decision_record(state, qs, response))
+    tally.decision_records.append(record)
     raw_output = getattr(response, "raw_output", None)
     if isinstance(raw_output, str):
         tally.backend_audits.append(
@@ -471,7 +507,13 @@ def think_after_step(
                 raw_output=raw_output,
             )
         )
-    decisions = decisions_from_response(seats, before, after, response, generation=generation)
+    tally.backend_telemetry.append(
+        telemetry_for_response(
+            response,
+            generation=generation,
+            elapsed_seconds=clock() - started,
+        )
+    )
     tally.last_decisions = tuple(decisions)
     tally.all_decisions.extend(decisions)
     for item in decisions:
@@ -508,6 +550,7 @@ def simulate_with_thinkers(
     client: object | None = None,
     questions: dict | None = None,
     seat_mode: str = SEAT_FRONTIER,
+    telemetry_clock: Callable[[], float] = perf_counter,
 ) -> tuple[SimulationResult, ThinkerStats]:
     """Like ``simulate``, plus optional Jev overrides every ``think_every`` gens.
 
@@ -554,6 +597,7 @@ def simulate_with_thinkers(
                 questions=questions,
                 stats=stats,
                 seat_mode=seat_mode,
+                clock=telemetry_clock,
             )
             book = register_holds(book, stats.last_decisions, generation, sticky)
         rates.append(cooperation_rate(grid))
