@@ -174,6 +174,16 @@ uv run python -m spatial_ipd.calibrate \
 
 Each JSON event includes both future trajectories, the outcome label, confidence provenance, and probability oriented as `P(resist=true)`. The final record reports Brier score and binary log loss over resolved outcomes; exact ties are reported and excluded. Use `--backend jev` or the same local-model flags as the probe command for live diagnostics. The built-in motif set is intentionally tiny, so its summary sets `calibration_claim_supported=false`; it is plumbing and evidence, not a scientific calibration claim.
 
+### Run the separate active-agent arena
+
+The Nowak–May engine remains unchanged. A separate repeated-game arena lets policies actively choose C or D from bounded match history:
+
+```bash
+uv run python -m spatial_ipd.arena --rounds 20
+```
+
+The deterministic round robin includes Always Cooperate, Always Defect, Tit-for-Tat, Pavlov (win-stay/lose-shift), and forgiving TFT. JSON match records include both action histories, payoffs, cooperation rates, and mutual-cooperation rounds. This is the stable policy seam for later memory or mixed-population experiments—not a replacement for the spatial engine.
+
 Viewer outlines thinker seats in gold when `--think-every` is set (`--seats` works there too).
 
 ```python
