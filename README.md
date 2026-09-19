@@ -151,7 +151,18 @@ Send the same named, code-derived situations through a thinker backend and print
 uv run python -m spatial_ipd.probes --backend random --seed 1
 ```
 
-The catalog covers lone-defector invasion, isolated-cooperator collapse, toroidal cluster recovery, a stable mixed boundary, and uniform cooperation. Use `--backend jev` or `--backend local --local-model qwen3:8b --local-reasoning-effort none` for live comparisons. Tests lock only the engine-derived strategy transitions and fake-client mapping—not stochastic live-model answers.
+The catalog covers lone-defector invasion, isolated-cooperator collapse, a pivotal cluster hold, toroidal cluster recovery, a stable mixed boundary, and uniform cooperation. Use `--backend jev` or `--backend local --local-model qwen3:8b --local-reasoning-effort none` for live comparisons. Tests lock only the engine-derived strategy transitions and fake-client mapping—not stochastic live-model answers.
+
+### Check probability calibration against outcomes
+
+Agreement between two backends does not establish which probability is better. The calibration diagnostic branches each C→D motif after imitation, forces either imitate or one-cell hold, advances both with identical RNG streams, and labels whether hold improves mean future cooperation:
+
+```bash
+uv run python -m spatial_ipd.calibrate \
+  --backend random --seed 1 --horizon 3
+```
+
+Each JSON event includes both future trajectories, the outcome label, confidence provenance, and probability oriented as `P(resist=true)`. The final record reports Brier score and binary log loss over resolved outcomes; exact ties are reported and excluded. Use `--backend jev` or the same local-model flags as the probe command for live diagnostics. The built-in motif set is intentionally tiny, so its summary sets `calibration_claim_supported=false`; it is plumbing and evidence, not a scientific calibration claim.
 
 Viewer outlines thinker seats in gold when `--think-every` is set (`--seats` works there too).
 
