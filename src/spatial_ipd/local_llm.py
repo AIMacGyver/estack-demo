@@ -264,9 +264,15 @@ class LocalLLMThinkerClient:
             raise LocalLLMError(f"Local LLM request to {self.endpoint} failed: {exc}") from exc
         content = _message_content(response)
         decision_json = _content_json(content)
-        return _normalized_response(
+        normalized = _normalized_response(
             decision_json,
             count=len(thinkers),
             question_ids=question_ids,
             raw_output=content,
         )
+        if isinstance(response, Mapping):
+            normalized.backend_usage = response.get("usage")
+            normalized.raw_response_bytes = len(
+                json.dumps(response, sort_keys=True, separators=(",", ":")).encode("utf-8")
+            )
+        return normalized

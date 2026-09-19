@@ -43,6 +43,7 @@ def test_local_client_posts_boolean_decisions_and_separate_confidence():
     def transport(endpoint, payload, headers, timeout):
         calls.append((endpoint, payload, headers, timeout))
         return {
+            "usage": {"prompt_tokens": 20, "completion_tokens": 8, "total_tokens": 28},
             "choices": [
                 {
                     "message": {
@@ -57,7 +58,7 @@ def test_local_client_posts_boolean_decisions_and_separate_confidence():
                         )
                     }
                 }
-            ]
+            ],
         }
 
     client = LocalLLMThinkerClient(
@@ -92,6 +93,8 @@ def test_local_client_posts_boolean_decisions_and_separate_confidence():
     assert response.scores["cluster_fragility_1"].score == 2.0
     assert response.confidence_kind == "llm_self_report"
     assert '"worth_thinking":true' in response.raw_output
+    assert response.backend_usage == {"prompt_tokens": 20, "completion_tokens": 8, "total_tokens": 28}
+    assert response.raw_response_bytes > len(response.raw_output)
 
 
 @pytest.mark.parametrize(
