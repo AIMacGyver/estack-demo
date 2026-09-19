@@ -468,7 +468,10 @@ def test_format_decision_line_includes_act():
     )
     assert line.startswith("gen=5 row=1 col=2 act=hold")
     assert "applied=yes" in line
+    assert "confidence_kind=jev_noul" in line
+    assert "worth_confidence=0.96" in line
     assert "resist=0.4" in line
+    assert "resist_confidence=0.4" in line
     assert "resist=n/a" not in line
     assert "conf=" not in line
     assert "focal_score=21" in line
