@@ -110,6 +110,26 @@ Use `--local-endpoint URL` and `--local-timeout SECONDS` for another server. `--
 
 `--compare` prints plain `simulate()` vs the thinker run. `--verbose` prints each seat’s act, confidence provenance, worth/resist signals and confidence (`n/a` when resist was not asked), and the imitate scores.
 
+### Record and replay thinker decisions
+
+Record a run once, then reproduce it without Jev, Ollama, or another backend. The versioned JSONL keeps each thinker state, question metadata, normalized response/confidence provenance, and available raw backend output.
+
+```bash
+uv run python -m spatial_ipd.think \
+  --height 8 --width 8 --generations 10 --seed 1 \
+  --mutation-rate 0.02 --think-every 5 --think-last 0 \
+  --sticky 0 --thinkers 2 --backend random \
+  --record-decisions decisions.jsonl
+
+uv run python -m spatial_ipd.think \
+  --height 8 --width 8 --generations 10 --seed 1 \
+  --mutation-rate 0.02 --think-every 5 --think-last 0 \
+  --sticky 0 --thinkers 2 \
+  --replay-decisions decisions.jsonl
+```
+
+Replay validates call order, state, question IDs, and full consumption. Changed simulation arguments fail clearly instead of silently applying a decision to the wrong seat.
+
 Viewer outlines thinker seats in gold when `--think-every` is set (`--seats` works there too).
 
 ```python
