@@ -15,7 +15,27 @@ def test_refactor_evidence_skill_is_discoverable_and_concise():
     assert "uv run pytest" in text
     assert "Pyinstrument" in text
     assert "Memray" in text
+    assert "Non-overridable behavior boundary" in text
+    assert "Any unexplained difference requires reverting" in text
+    assert "numeric replacement" in text
+    assert "YOLO" in text
+    assert "behavior boundary is never overridable" in text
     assert len(text.splitlines()) < 500
+
+
+def test_refactor_threshold_defaults_are_explicit_and_machine_readable():
+    path = ROOT / ".agents" / "skills" / "refactor-evidence" / "thresholds.toml"
+    thresholds = tomllib.loads(path.read_text(encoding="utf-8"))
+    assert thresholds == {
+        "required_corroborating_signals": 2,
+        "min_cpu_share": 0.10,
+        "min_allocation_share": 0.10,
+        "min_cyclomatic_complexity": 11,
+        "min_cognitive_complexity": 20,
+        "measurement_repeats": 3,
+        "min_median_improvement": 0.10,
+        "max_other_metric_regression": 0.05,
+    }
 
 
 def test_analysis_dependency_group_contains_selected_tools():

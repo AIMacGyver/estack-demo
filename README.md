@@ -237,4 +237,4 @@ make analysis-static
 make benchmark
 ```
 
-The project skill [`refactor-evidence`](.agents/skills/refactor-evidence/SKILL.md) defines the CPU, memory, benchmark, dead-code, and complexity workflow. Research rationale and initial complexity observations live in [`docs/analysis-tooling.md`](docs/analysis-tooling.md). Generated profiles and benchmark baselines are gitignored.
+The project skill [`refactor-evidence`](.agents/skills/refactor-evidence/SKILL.md) defines the CPU, memory, benchmark, dead-code, and complexity workflow. Checked-in [`thresholds.toml`](.agents/skills/refactor-evidence/thresholds.toml) supplies default investigate/ship gates; overrides must name a numeric threshold and rationale, while behavior preservation is non-overridable. Research rationale and initial observations live in [`docs/analysis-tooling.md`](docs/analysis-tooling.md). Generated profiles and benchmark baselines are gitignored.
