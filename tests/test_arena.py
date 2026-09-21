@@ -5,6 +5,7 @@ import json
 import pytest
 
 from spatial_ipd.arena import (
+    GUARD_POLICIES,
     AlwaysCooperate,
     AlwaysDefect,
     CommunicationGuard,
@@ -14,9 +15,12 @@ from spatial_ipd.arena import (
     Pavlov,
     ReputationGuard,
     TitForTat,
+    information_signals,
     main,
     play_match,
+    rank_policies,
     round_robin,
+    run_tournament,
 )
 from spatial_ipd.engine import simulate
 from spatial_ipd.payoffs import COOPERATE as C
@@ -97,6 +101,35 @@ def test_round_robin_includes_self_play_and_every_pair():
     assert any(result.policy_a == "pavlov" and result.policy_b == "forgiving_tit_for_tat" for result in results)
 
 
+def test_guard_roster_and_informed_replay_change_defector_matches():
+    first = round_robin(rounds=4, policy_types=GUARD_POLICIES)
+    assert len(first) == 28
+    signals = information_signals(first)
+    assert signals["always_defect"]["reputation"] < 0.5
+    assert signals["always_defect"]["warning_rate"] == 1.0
+    assert signals["always_cooperate"]["warning_rate"] == 0.0
+    second = round_robin(rounds=4, policy_types=GUARD_POLICIES, signals=signals)
+    uninformed = next(
+        result for result in first if result.policy_a == "always_defect" and result.policy_b == "reputation_guard"
+    )
+    informed = next(
+        result for result in second if result.policy_a == "always_defect" and result.policy_b == "reputation_guard"
+    )
+    assert uninformed.actions_b == (C, C, C, C)
+    assert informed.actions_b == (D, D, D, D)
+    assert run_tournament(rounds=4, roster="guards", information="on")["passes"][1]["matches"] == second
+
+
+def test_tournament_rankings_are_deterministic_and_size_preserving():
+    first = run_tournament(rounds=5, roster="guards", information="on")
+    second = run_tournament(rounds=5, roster="guards", information="on")
+    assert first == second
+    informed = first["passes"][1]["rankings"]
+    assert [row["rank"] for row in informed] == list(range(1, 8))
+    assert {row["policy"] for row in informed} == {policy.name for policy in GUARD_POLICIES}
+    assert rank_policies(first["passes"][0]["matches"], information="off", pass_name="uninformed")[0]["rank"] == 1
+
+
 def test_policy_action_is_validated():
     class InvalidPolicy:
         name = "invalid"
@@ -107,6 +140,34 @@ def test_policy_action_is_validated():
 
     with pytest.raises(ValueError, match="invalid action"):
         play_match(InvalidPolicy(), AlwaysCooperate(), rounds=1)
+
+
+def test_arena_cli_writes_guard_tournament_artifacts(tmp_path, capsys):
+    jsonl = tmp_path / "tournament.jsonl"
+    csv_path = tmp_path / "tournament.csv"
+    assert (
+        main(
+            [
+                "--rounds",
+                "3",
+                "--roster",
+                "guards",
+                "--information",
+                "on",
+                "--jsonl",
+                str(jsonl),
+                "--csv",
+                str(csv_path),
+            ]
+        )
+        == 0
+    )
+    summary = json.loads(capsys.readouterr().out.strip())
+    assert summary["matches"] == 56
+    assert summary["passes"] == ["uninformed", "informed"]
+    records = [json.loads(line) for line in jsonl.read_text(encoding="utf-8").splitlines()]
+    assert records[-1]["roster"] == "guards"
+    assert csv_path.read_text(encoding="utf-8").splitlines()[0].startswith("information,pass_name,rank")
 
 
 def test_arena_cli_prints_fifteen_matches_and_summary(capsys):
