@@ -16,6 +16,7 @@ this slice has no mutation.
 ## Method
 
 - initial population: 100 agents, 20 of each canonical policy
+- 10 declared base seeds (20260921–20260930)
 - 10 generations
 - 50 encounter shuffles per generation
 - 10 rounds per match
@@ -26,7 +27,7 @@ A 10-agent pilot rounded every policy back to two agents each generation. The
 committed evidence uses 100 agents so proportional differences survive integer
 allocation.
 
-## Frequency trajectories
+## First replicate trajectory
 
 Counts after each generation:
 
@@ -36,7 +37,7 @@ Counts after each generation:
 - Pavlov: 20 in every generation
 - Tit-for-Tat: 20, 21, 22, 23, 24, 25, 26, 27, 28, 29
 
-Final population:
+First-replicate final population:
 
 - Tit-for-Tat: 29
 - Forgiving TFT: 28
@@ -49,12 +50,26 @@ contracted. Always Defect's strong one-generation payoff in the original fixed
 composition did not persist as a long-run frequency advantage under
 frequency-dependent matching.
 
+## Ten-seed final frequencies
+
+Mean final count (minimum–maximum):
+
+- Tit-for-Tat: 29.7 (29–30)
+- Forgiving TFT: 25.5 (22–28)
+- Pavlov: 20.2 (20–21)
+- Always Cooperate: 15.1 (13–17)
+- Always Defect: 9.5 (8–11)
+
+The ordering was stable across these ten schedule sequences. Tit-for-Tat and
+forgiving TFT expanded in every replicate; Always Cooperate and Always Defect
+contracted; Pavlov remained nearly unchanged.
+
 ## Limits
 
-This is one initial composition, population size, schedule sequence, selection
-rule, and no-mutation horizon. Largest-remainder selection is deterministic but
-not a biological claim. Longer runs, replicate base seeds, and mutation are
-needed before discussing stable equilibria or fixation.
+This is one initial composition, population size, selection rule, and
+no-mutation horizon. Largest-remainder selection is deterministic but not a
+biological claim. Other compositions, longer runs, and mutation are needed
+before discussing stable equilibria or fixation.
 
 ## Reproduce
 

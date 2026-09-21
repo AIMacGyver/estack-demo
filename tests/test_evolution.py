@@ -12,6 +12,7 @@ from spatial_ipd.evolution import (
     main,
     normalize_manifest,
     run_evolution,
+    summarize_final,
 )
 
 
@@ -64,6 +65,22 @@ def test_generation_seeds_are_stable_and_incremented():
         (1, 22),
         (2, 23),
     ]
+
+
+def test_multiple_base_seeds_produce_replicate_summaries():
+    manifest = dict(_manifest(generations=3))
+    manifest["seeds"] = [21, 31]
+    rows = run_evolution(manifest)
+    assert {row["replicate_seed"] for row in rows} == {21, 31}
+    for replicate_seed in (21, 31):
+        for generation in range(3):
+            generation_rows = [
+                row for row in rows if row["replicate_seed"] == replicate_seed and row["generation"] == generation
+            ]
+            assert sum(row["next_count"] for row in generation_rows) == 8
+    summary = summarize_final(rows)
+    assert all(item["replicates"] == 2 for item in summary)
+    assert all(item["min_final_count"] <= item["mean_final_count"] <= item["max_final_count"] for item in summary)
 
 
 def test_manifest_rejects_odd_population_and_bad_generation_count():
