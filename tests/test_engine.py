@@ -1,5 +1,6 @@
 """Scoring, imitation, mutation, and seeded determinism."""
 
+from itertools import product
 from random import Random
 
 from spatial_ipd import (
@@ -8,6 +9,8 @@ from spatial_ipd import (
     adopt_best,
     apply_mutation,
     cooperation_rate,
+    moore_neighbors,
+    payoff,
     random_grid,
     score_cells,
     simulate,
@@ -82,6 +85,20 @@ def test_score_all_defectors_each_earn_eight_punishments():
     grid = [[D, D], [D, D]]
     scores = score_cells(grid)
     assert scores == [[8, 8], [8, 8]]  # 8 neighbors × 1
+
+
+def test_score_cells_matches_public_neighborhood_and_payoff_exhaustively():
+    for height, width in ((1, 1), (1, 2), (2, 1), (2, 2), (2, 3), (3, 3)):
+        for cells in product((D, C), repeat=height * width):
+            grid = [list(cells[row * width : (row + 1) * width]) for row in range(height)]
+            expected = [
+                [
+                    sum(payoff(grid[row][col], grid[nr][nc]) for nr, nc in moore_neighbors(row, col, height, width))
+                    for col in range(width)
+                ]
+                for row in range(height)
+            ]
+            assert score_cells(grid) == expected
 
 
 def test_lone_defector_among_cooperators_tempts_and_is_imitated():

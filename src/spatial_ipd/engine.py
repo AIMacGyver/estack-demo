@@ -18,7 +18,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from random import Random
 
-from spatial_ipd.neighborhood import moore_neighbors
+from spatial_ipd.neighborhood import MOORE_OFFSETS, moore_neighbors
 from spatial_ipd.payoffs import COOPERATE, DEFECT, payoff
 
 Grid = list[list[int]]
@@ -74,12 +74,17 @@ def score_cells(grid: Grid) -> list[list[int]]:
     """Accumulate PD payoffs against each cell's eight Moore neighbors."""
     height, width = _require_grid(grid)
     scores = [[0] * width for _ in range(height)]
+    payoff_rows = (
+        (payoff(DEFECT, DEFECT), payoff(DEFECT, COOPERATE)),
+        (payoff(COOPERATE, DEFECT), payoff(COOPERATE, COOPERATE)),
+    )
     for r in range(height):
         for c in range(width):
             focal = int(grid[r][c])
+            focal_payoffs = payoff_rows[focal]
             total = 0
-            for nr, nc in moore_neighbors(r, c, height, width):
-                total += payoff(focal, int(grid[nr][nc]))
+            for dr, dc in MOORE_OFFSETS:
+                total += focal_payoffs[int(grid[(r + dr) % height][(c + dc) % width])]
             scores[r][c] = total
     return scores
 
