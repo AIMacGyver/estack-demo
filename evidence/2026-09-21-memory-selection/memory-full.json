@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "seed": 20260921,
+  "seeds": [
+    20260921,
+    20260922,
+    20260923,
+    20260924,
+    20260925,
+    20260926,
+    20260927,
+    20260928,
+    20260929,
+    20260930
+  ],
+  "generations": 10,
+  "mutation_rate": 0.0,
+  "encounters_per_generation": 50,
+  "rounds_per_match": 10,
+  "population": {
+    "always_cooperate": 20,
+    "always_defect": 20,
+    "forgiving_tit_for_tat": 20,
+    "pavlov": 20,
+    "tit_for_tat": 20
+  },
+  "memory_window": null
+}

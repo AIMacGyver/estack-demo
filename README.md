@@ -237,7 +237,11 @@ uv run python -m spatial_ipd.evolution \
 ```
 
 Population size stays fixed; largest-remainder allocation converts each
-policy's total-payoff share into next-generation integer counts. The
+policy's total-payoff share into next-generation integer counts. Manifests
+also accept `memory_window`; the
+[memory-under-selection experiment](evidence/2026-09-21-memory-selection/README.md)
+shows that window 1 lets Always Defect take over while windows 2, 4, and full
+history stay identical. The
 [first evolutionary evidence run](evidence/2026-09-21-evolution/README.md)
 uses a larger population to avoid coarse rounding, repeats ten base seeds, and
 documents its no-mutation limits. Manifests accept either `seed` or a unique
