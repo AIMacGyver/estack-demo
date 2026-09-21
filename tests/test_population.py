@@ -15,7 +15,7 @@ from spatial_ipd.population import (
 )
 
 
-def _manifest(seed=7, memory_window=None):
+def _manifest(seed=7, memory_window=None, reputation_enabled=False):
     return normalize_manifest(
         {
             "schema_version": POPULATION_MANIFEST_VERSION,
@@ -23,6 +23,7 @@ def _manifest(seed=7, memory_window=None):
             "encounters": 4,
             "rounds_per_match": 5,
             "memory_window": memory_window,
+            "reputation_enabled": reputation_enabled,
             "population": {
                 "always_cooperate": 2,
                 "always_defect": 2,
@@ -66,6 +67,31 @@ def test_memory_windows_keep_schedule_and_isolate_policy_effect():
         == [{key: value for key, value in summary.items() if key != "memory_window"} for summary in four_summaries]
         == [{key: value for key, value in summary.items() if key != "memory_window"} for summary in full_summaries]
     )
+
+
+def test_reputation_enabled_keeps_schedule_and_changes_guard_behavior():
+    base = {
+        "schema_version": POPULATION_MANIFEST_VERSION,
+        "seed": 11,
+        "encounters": 12,
+        "rounds_per_match": 5,
+        "population": {
+            "always_cooperate": 2,
+            "always_defect": 2,
+            "reputation_guard": 2,
+        },
+    }
+    disabled_events, disabled_summaries = run_population(normalize_manifest({**base, "reputation_enabled": False}))
+    enabled_events, enabled_summaries = run_population(normalize_manifest({**base, "reputation_enabled": True}))
+    assert [(event["agent_a"], event["agent_b"]) for event in disabled_events] == [
+        (event["agent_a"], event["agent_b"]) for event in enabled_events
+    ]
+    assert all(event["opponent_reputation_a"] is None for event in disabled_events)
+    assert any(event["opponent_reputation_a"] is not None for event in enabled_events)
+    disabled_guard = next(summary for summary in disabled_summaries if summary["policy"] == "reputation_guard")
+    enabled_guard = next(summary for summary in enabled_summaries if summary["policy"] == "reputation_guard")
+    assert disabled_guard["cooperation_rate"] == 1.0
+    assert enabled_guard["cooperation_rate"] < 1.0
 
 
 def test_policy_aggregates_match_encounter_records():
