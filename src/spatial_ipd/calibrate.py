@@ -11,7 +11,7 @@ from dataclasses import asdict, dataclass
 from random import Random
 from statistics import fmean
 
-from spatial_ipd.engine import Grid, cooperation_rate, step
+from spatial_ipd.engine import Grid, adopt_best, cooperation_rate, random_grid, score_cells, step
 from spatial_ipd.judgments import RESIST_YES_THRESHOLD
 from spatial_ipd.label import load_dotenv
 from spatial_ipd.local_llm import (
@@ -20,6 +20,7 @@ from spatial_ipd.local_llm import (
     LOCAL_LLM_REASONING_EFFORTS,
     LocalLLMThinkerClient,
 )
+from spatial_ipd.neighborhood import moore_neighbors
 from spatial_ipd.payoffs import COOPERATE
 from spatial_ipd.probes import SCENARIOS, ProbeScenario, run_probe, transition_name
 from spatial_ipd.think import (
@@ -67,18 +68,52 @@ def _future_rates(
     return tuple(rates)
 
 
+def cooperating_component(grid: Grid, seat: tuple[int, int]) -> set[tuple[int, int]]:
+    """Return the Moore-connected cooperating component that contains ``seat``."""
+    height = len(grid)
+    width = len(grid[0])
+    row, col = seat
+    if int(grid[row][col]) != COOPERATE:
+        raise ValueError("component seat must be cooperating")
+    found: set[tuple[int, int]] = set()
+    pending = [seat]
+    while pending:
+        current = pending.pop()
+        if current in found:
+            continue
+        current_row, current_col = current
+        if int(grid[current_row][current_col]) != COOPERATE:
+            continue
+        found.add(current)
+        for neighbor in moore_neighbors(current_row, current_col, height, width):
+            if neighbor not in found:
+                pending.append(neighbor)
+    return found
+
+
+def restore_component(before: Grid, after: Grid, seat: tuple[int, int]) -> Grid:
+    """Set the pre-imitation cooperating component back to C on the post-imitation grid."""
+    restored = [row[:] for row in after]
+    for row, col in cooperating_component(before, seat):
+        restored[row][col] = COOPERATE
+    return restored
+
+
 def evaluate_counterfactual(
     scenario: ProbeScenario,
     *,
     horizon: int,
     seed: int,
     mutation_rate: float = 0.0,
+    intervention: str = "cell",
 ) -> CounterfactualOutcome:
     """Label one C→D event by deterministic future cooperation after intervention."""
     if horizon < 1:
         raise ValueError("horizon must be positive")
     if not 0.0 <= mutation_rate <= 1.0:
         raise ValueError("mutation_rate must be in [0, 1]")
+    if intervention not in {"cell", "component"}:
+        raise ValueError("intervention must be cell or component")
     before = scenario.before_grid()
     after = scenario.after_grid()
     row, col = scenario.seat
@@ -87,8 +122,11 @@ def evaluate_counterfactual(
         raise ValueError(f"scenario {scenario.id!r} is {transition}; calibration requires C->D")
 
     imitate = [line[:] for line in after]
-    hold = [line[:] for line in after]
-    hold[row][col] = COOPERATE
+    if intervention == "cell":
+        hold = [line[:] for line in after]
+        hold[row][col] = COOPERATE
+    else:
+        hold = restore_component(before, after, (row, col))
     imitate_rates = _future_rates(
         imitate,
         horizon=horizon,
@@ -118,6 +156,54 @@ def evaluate_counterfactual(
         hold_final=hold_rates[-1],
         hold_better=label,
     )
+
+
+def count_hold_yield(
+    *,
+    seeds: Sequence[int],
+    height: int = 8,
+    width: int = 8,
+    generations: int = 10,
+    horizon: int = 3,
+    mutation_rate: float = 0.0,
+    intervention: str = "cell",
+) -> dict[str, int]:
+    """Count resolved labels for imitation C→D events on seeded lattices."""
+    if not seeds:
+        raise ValueError("seeds must not be empty")
+    if mutation_rate != 0.0:
+        raise ValueError("yield counts are defined for mutation_rate 0")
+    counts = {"events": 0, "positive": 0, "negative": 0, "tie": 0}
+    for seed in seeds:
+        grid = random_grid(height, width, seed=int(seed))
+        for generation in range(generations):
+            after = adopt_best(grid, score_cells(grid))
+            for row, before_row in enumerate(grid):
+                for col, cell in enumerate(before_row):
+                    if int(cell) != COOPERATE or int(after[row][col]) == COOPERATE:
+                        continue
+                    scenario = ProbeScenario(
+                        id=f"yield-{seed}-{generation}-{row}-{col}",
+                        description="mined C-to-D imitation event",
+                        before=tuple(tuple(int(value) for value in line) for line in grid),
+                        seat=(row, col),
+                    )
+                    outcome = evaluate_counterfactual(
+                        scenario,
+                        horizon=horizon,
+                        seed=int(seed) + generation,
+                        mutation_rate=0.0,
+                        intervention=intervention,
+                    )
+                    counts["events"] += 1
+                    if outcome.hold_better is True:
+                        counts["positive"] += 1
+                    elif outcome.hold_better is False:
+                        counts["negative"] += 1
+                    else:
+                        counts["tie"] += 1
+            grid = after
+    return counts
 
 
 def resist_true_probability(probe: Mapping[str, object]) -> float:

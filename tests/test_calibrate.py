@@ -11,9 +11,12 @@ from spatial_ipd.calibrate import (
     binary_log_loss,
     brier_score,
     calibration_summary,
+    cooperating_component,
+    count_hold_yield,
     evaluate_counterfactual,
     main,
     resist_true_probability,
+    restore_component,
     run_calibration,
 )
 from spatial_ipd.engine import simulate
@@ -66,6 +69,33 @@ def test_counterfactual_labels_pivotal_hold_better_and_collapse_tie():
     )
     assert collapse.hold_rates == collapse.imitate_rates == (0.0, 0.0, 0.0)
     assert collapse.hold_better is None
+
+
+def test_component_restore_matches_cell_only_for_a_lone_cooperator():
+    lone = _scenario("isolated_cooperator_collapse")
+    assert cooperating_component(lone.before_grid(), lone.seat) == {lone.seat}
+    assert restore_component(lone.before_grid(), lone.after_grid(), lone.seat)[1][1] == 1
+    cell = evaluate_counterfactual(lone, horizon=2, seed=3, intervention="cell")
+    component = evaluate_counterfactual(lone, horizon=2, seed=3, intervention="component")
+    assert component.hold_rates == cell.hold_rates
+    assert component.hold_better is cell.hold_better is None
+
+    before = [[0, 0, 0], [1, 1, 0], [0, 0, 0]]
+    after = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
+    restored = restore_component(before, after, (1, 0))
+    assert restored[1][0] == restored[1][1] == 1
+    assert restored[1][2] == 0
+
+
+def test_component_yield_is_deterministic_and_keeps_one_cell_labels():
+    pivotal = evaluate_counterfactual(_scenario("pivotal_cluster_hold"), horizon=3, seed=1, intervention="cell")
+    assert pivotal.hold_better is True
+    first = count_hold_yield(seeds=(1,), height=4, width=4, generations=2, horizon=1, intervention="component")
+    second = count_hold_yield(seeds=(1,), height=4, width=4, generations=2, horizon=1, intervention="component")
+    assert first == second
+    assert first["positive"] + first["negative"] + first["tie"] == first["events"]
+    with pytest.raises(ValueError, match="mutation_rate"):
+        count_hold_yield(seeds=(1,), mutation_rate=0.02)
 
 
 def test_counterfactual_branches_use_identical_rng_streams(monkeypatch):
