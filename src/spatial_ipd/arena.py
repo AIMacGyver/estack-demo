@@ -26,6 +26,7 @@ class Observation:
     own_history: tuple[int, ...]
     opponent_history: tuple[int, ...]
     opponent_reputation: float | None = None
+    opponent_warning_rate: float | None = None
 
 
 class Policy(Protocol):
@@ -118,6 +119,7 @@ class MemoryWindowPolicy:
                 own_history=observation.own_history[-self.window :],
                 opponent_history=observation.opponent_history[-self.window :],
                 opponent_reputation=observation.opponent_reputation,
+                opponent_warning_rate=observation.opponent_warning_rate,
             )
         )
 
@@ -141,6 +143,25 @@ class ReputationGuard:
         return DEFECT
 
 
+class CommunicationGuard:
+    """Cooperate without reports and defect when warnings reach threshold."""
+
+    name = "communication_guard"
+
+    def __init__(self, threshold: float = 0.5):
+        """Bind a warning-rate threshold in [0, 1]."""
+        if not 0.0 <= threshold <= 1.0:
+            raise ValueError("communication threshold must be in [0, 1]")
+        self.threshold = threshold
+
+    def choose(self, observation: Observation) -> int:
+        """Gate cooperation on bounded warnings about the opponent."""
+        warning_rate = observation.opponent_warning_rate
+        if warning_rate is None or warning_rate < self.threshold:
+            return COOPERATE
+        return DEFECT
+
+
 CANONICAL_POLICIES: tuple[type[Policy], ...] = (
     AlwaysCooperate,
     AlwaysDefect,
@@ -150,6 +171,7 @@ CANONICAL_POLICIES: tuple[type[Policy], ...] = (
 )
 POLICY_TYPES: dict[str, type[Policy]] = {policy_type.name: policy_type for policy_type in CANONICAL_POLICIES}
 POLICY_TYPES[ReputationGuard.name] = ReputationGuard
+POLICY_TYPES[CommunicationGuard.name] = CommunicationGuard
 
 
 @dataclass(frozen=True)
@@ -181,6 +203,8 @@ def play_match(
     rounds: int,
     opponent_reputation_a: float | None = None,
     opponent_reputation_b: float | None = None,
+    opponent_warning_rate_a: float | None = None,
+    opponent_warning_rate_b: float | None = None,
 ) -> MatchResult:
     """Play simultaneous repeated Prisoner's Dilemma for ``rounds``."""
     if rounds < 1:
@@ -198,6 +222,7 @@ def play_match(
                     own_history=tuple(actions_a),
                     opponent_history=tuple(actions_b),
                     opponent_reputation=opponent_reputation_a,
+                    opponent_warning_rate=opponent_warning_rate_a,
                 )
             ),
             policy_a.name,
@@ -209,6 +234,7 @@ def play_match(
                     own_history=tuple(actions_b),
                     opponent_history=tuple(actions_a),
                     opponent_reputation=opponent_reputation_b,
+                    opponent_warning_rate=opponent_warning_rate_b,
                 )
             ),
             policy_b.name,

@@ -7,6 +7,7 @@ import pytest
 from spatial_ipd.arena import (
     AlwaysCooperate,
     AlwaysDefect,
+    CommunicationGuard,
     ForgivingTitForTat,
     MemoryWindowPolicy,
     Observation,
@@ -79,6 +80,14 @@ def test_reputation_guard_cooperates_without_signal_and_gates_known_opponents():
     assert policy.choose(Observation(**base)) == C
     assert policy.choose(Observation(**base, opponent_reputation=0.5)) == C
     assert policy.choose(Observation(**base, opponent_reputation=0.49)) == D
+
+
+def test_communication_guard_cooperates_without_reports_and_gates_warnings():
+    policy = CommunicationGuard(threshold=0.5)
+    base = dict(round_index=0, own_history=(), opponent_history=())
+    assert policy.choose(Observation(**base)) == C
+    assert policy.choose(Observation(**base, opponent_warning_rate=0.49)) == C
+    assert policy.choose(Observation(**base, opponent_warning_rate=0.5)) == D
 
 
 def test_round_robin_includes_self_play_and_every_pair():
