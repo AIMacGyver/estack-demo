@@ -131,6 +131,38 @@ def test_reputation_flag_propagates_and_changes_selection_evidence():
     assert disabled != enabled
 
 
+def test_communication_flag_propagates_and_changes_selection_evidence():
+    base = {
+        "schema_version": EVOLUTION_MANIFEST_VERSION,
+        "seed": 41,
+        "generations": 3,
+        "encounters_per_generation": 12,
+        "rounds_per_match": 5,
+        "mutation_rate": 0.0,
+        "population": {
+            "always_cooperate": 2,
+            "always_defect": 2,
+            "communication_guard": 2,
+            "tit_for_tat": 2,
+        },
+    }
+    disabled = run_evolution(normalize_manifest({**base, "communication_enabled": False}))
+    enabled = run_evolution(normalize_manifest({**base, "communication_enabled": True}))
+    assert all(row["communication_enabled"] is False for row in disabled)
+    assert all(row["communication_enabled"] is True for row in enabled)
+    assert [(row["replicate_seed"], row["generation"], row["seed"]) for row in disabled] == [
+        (row["replicate_seed"], row["generation"], row["seed"]) for row in enabled
+    ]
+    assert disabled != enabled
+
+
+def test_communication_enabled_defaults_false_and_rejects_non_boolean():
+    manifest = _manifest()
+    assert manifest["communication_enabled"] is False
+    with pytest.raises(EvolutionError, match="communication_enabled"):
+        normalize_manifest({**_manifest(), "communication_enabled": "true"})
+
+
 def test_manifest_rejects_odd_population_and_bad_generation_count():
     value = {
         "schema_version": EVOLUTION_MANIFEST_VERSION,

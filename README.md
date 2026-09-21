@@ -241,9 +241,12 @@ documents its no-mutation limits. Manifests accept either `seed` or a unique
 [matched mutation control](evidence/2026-09-21-evolution-mutation/README.md)
 compares rates 0 and 0.02 over the same ten seeds.
 
-Evolution manifests also accept `reputation_enabled`. The
+Evolution manifests also accept `reputation_enabled` and
+`communication_enabled`. The
 [matched reputation-selection experiment](evidence/2026-09-21-reputation-selection/README.md)
-shows why fixed-composition and evolutionary mechanism conclusions can differ.
+and
+[matched communication-selection experiment](evidence/2026-09-21-communication-selection/README.md)
+show why fixed-composition and evolutionary mechanism conclusions can differ.
 
 The viewer accepts `--backend random|jev|local` when `--think-every` is set (`--seats` works there too). Applied holds are outlined green, other thinker decisions gold, and the selected cell cyan; its strategy and payoff appear in the title. The lower panel plots cooperation (blue) and largest-cluster share (green). Local uses the same `--local-model`, endpoint, timeout, and reasoning flags as other thinker commands.
 
