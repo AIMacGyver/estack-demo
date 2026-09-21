@@ -198,6 +198,16 @@ uv run python -m spatial_ipd.reliability \
 
 The report separates Brier/log loss, expected calibration error and reliability bins, confidence-gated coverage/selective accuracy, and consistency between the backend's resist decision and its oriented probability. Ties never become labels. `calibration_claim_supported` requires the configured minimum resolved sample and both positive and negative outcomes.
 
+Score the same three backends on committed arena facts that already have both classes. The prompt names the mechanism, condition, seed, and roster. It does not include the final count:
+
+```bash
+uv run python -m spatial_ipd.forecast \
+  --backend random --seed 1 \
+  --jsonl forecasts.jsonl
+```
+
+`--backend jev` and `--backend local --local-model qwen3:8b` use the same catalog. `calibration_claim_supported` here means the sample has at least 50 resolved events and both classes, so a comparison is allowed. It does not mean a backend is calibrated. Random is the null. The [known-forecast run](evidence/2026-09-21-known-forecasts/README.md) records Brier and log loss for all three.
+
 ### Run the separate active-agent arena
 
 The Nowak–May engine remains unchanged. A separate repeated-game arena lets policies actively choose C or D from bounded match history:
