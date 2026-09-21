@@ -237,7 +237,9 @@ policy's total-payoff share into next-generation integer counts. The
 [first evolutionary evidence run](evidence/2026-09-21-evolution/README.md)
 uses a larger population to avoid coarse rounding, repeats ten base seeds, and
 documents its no-mutation limits. Manifests accept either `seed` or a unique
-`seeds` list.
+`seeds` list plus an optional policy `mutation_rate`. The
+[matched mutation control](evidence/2026-09-21-evolution-mutation/README.md)
+compares rates 0 and 0.02 over the same ten seeds.
 
 The viewer accepts `--backend random|jev|local` when `--think-every` is set (`--seats` works there too). Applied holds are outlined green, other thinker decisions gold, and the selected cell cyan; its strategy and payoff appear in the title. The lower panel plots cooperation (blue) and largest-cluster share (green). Local uses the same `--local-model`, endpoint, timeout, and reasoning flags as other thinker commands.
 
