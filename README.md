@@ -204,6 +204,20 @@ uv run python -m spatial_ipd.arena --rounds 20
 
 The deterministic round robin includes Always Cooperate, Always Defect, Tit-for-Tat, Pavlov (win-stay/lose-shift), and forgiving TFT. JSON match records include both action histories, payoffs, cooperation rates, and mutual-cooperation rounds. This is the stable policy seam for later memory or mixed-population experiments—not a replacement for the spatial engine.
 
+Run a seeded mixed population without reproduction or selection:
+
+```bash
+uv run python -m spatial_ipd.population \
+  --manifest examples/population.json \
+  --jsonl population.jsonl \
+  --csv population-summary.csv
+```
+
+The manifest fixes canonical policy counts, encounter schedules, and rounds per match. JSONL preserves every identified pairing and action history; CSV aggregates payoff and cooperation by policy. Repeating the same seed is byte-identical, while another seed changes pairing order.
+
+See the [first mixed-population evidence run](evidence/2026-09-21-mixed-population/README.md)
+for the fixed composition, results, and limits.
+
 The viewer accepts `--backend random|jev|local` when `--think-every` is set (`--seats` works there too). Applied holds are outlined green, other thinker decisions gold, and the selected cell cyan; its strategy and payoff appear in the title. The lower panel plots cooperation (blue) and largest-cluster share (green). Local uses the same `--local-model`, endpoint, timeout, and reasoning flags as other thinker commands.
 
 ```python

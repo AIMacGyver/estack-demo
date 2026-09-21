@@ -105,6 +105,7 @@ CANONICAL_POLICIES: tuple[type[Policy], ...] = (
     Pavlov,
     ForgivingTitForTat,
 )
+POLICY_TYPES: dict[str, type[Policy]] = {policy_type.name: policy_type for policy_type in CANONICAL_POLICIES}
 
 
 @dataclass(frozen=True)

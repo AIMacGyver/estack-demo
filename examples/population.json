@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "seed": 20260921,
+  "encounters": 50,
+  "rounds_per_match": 10,
+  "population": {
+    "always_cooperate": 2,
+    "always_defect": 2,
+    "forgiving_tit_for_tat": 2,
+    "pavlov": 2,
+    "tit_for_tat": 2
+  }
+}
