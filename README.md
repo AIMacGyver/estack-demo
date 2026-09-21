@@ -202,7 +202,11 @@ The Nowak–May engine remains unchanged. A separate repeated-game arena lets po
 uv run python -m spatial_ipd.arena --rounds 20
 ```
 
-The deterministic round robin includes Always Cooperate, Always Defect, Tit-for-Tat, Pavlov (win-stay/lose-shift), and forgiving TFT. JSON match records include both action histories, payoffs, cooperation rates, and mutual-cooperation rounds. This is the stable policy seam for later memory or mixed-population experiments—not a replacement for the spatial engine.
+The default round robin includes Always Cooperate, Always Defect, Tit-for-Tat, Pavlov (win-stay/lose-shift), and forgiving TFT. `--roster guards` adds Reputation Guard and Communication Guard. `--information on` replays the same pairings after first-pass cooperation becomes each identity's reputation and a warning is published below 0.5. JSON match records include both action histories, payoffs, cooperation rates, and mutual-cooperation rounds. This is the stable policy seam for later memory or mixed-population experiments—not a replacement for the spatial engine.
+
+See the [guard tournament](evidence/2026-09-21-guard-tournament/README.md)
+for uninformed versus informed ranks. Optional `--jsonl` and `--csv` write the
+same tables used in that evidence.
 
 Run a seeded mixed population without reproduction or selection:
 
