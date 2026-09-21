@@ -212,6 +212,19 @@ See the [guard tournament](evidence/2026-09-21-guard-tournament/README.md)
 for uninformed versus informed ranks. Optional `--jsonl` and `--csv` write the
 same tables used in that evidence.
 
+A judged seat asks one cooperate-or-defect question per round. Code cooperates when the returned Noul is at least 0.5. `--backend random` needs no API key. `--backend jev` uses TypeSafe. `--backend local` requires a boolean `cooperate` plus a separate self-reported `confidence`; the boolean chooses the action.
+
+```bash
+uv run python -m spatial_ipd.judged \
+  --manifest examples/judged.json \
+  --backend random \
+  --jsonl judged.jsonl \
+  --csv judged.csv \
+  --decisions judged-decisions.jsonl
+```
+
+The [first judged-arena run](evidence/2026-09-21-judged-arena/README.md) uses that manifest against Always Cooperate, Always Defect, and Tit-for-Tat. Pair order does not depend on the backend.
+
 Run a seeded mixed population without reproduction or selection:
 
 ```bash

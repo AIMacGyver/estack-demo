@@ -187,6 +187,90 @@ def _normalized_response(
     )
 
 
+class LocalCooperateClient:
+    """Ask a local model for one boolean cooperate action and a separate confidence."""
+
+    uses_sdk_questions = False
+
+    def __init__(
+        self,
+        model: str,
+        *,
+        endpoint: str = DEFAULT_LOCAL_LLM_ENDPOINT,
+        api_key: str | None = None,
+        timeout: float = DEFAULT_LOCAL_LLM_TIMEOUT,
+        reasoning_effort: str | None = None,
+        temperature: float = 0.0,
+        max_tokens: int | None = None,
+        transport: Transport | None = None,
+    ):
+        """Bind local model configuration and an injectable JSON transport."""
+        if not model.strip():
+            raise ValueError("local model must not be empty")
+        if timeout <= 0:
+            raise ValueError("local timeout must be positive")
+        if reasoning_effort is not None and reasoning_effort not in LOCAL_LLM_REASONING_EFFORTS:
+            raise ValueError(f"local reasoning effort must be one of {LOCAL_LLM_REASONING_EFFORTS}")
+        self.model = model
+        self.endpoint = endpoint
+        self.api_key = api_key
+        self.timeout = timeout
+        self.reasoning_effort = reasoning_effort
+        self.temperature = temperature
+        self.max_tokens = max_tokens
+        self._transport = transport or _post_json
+
+    def system_one(self, state: object, questions: Mapping[str, object]) -> SimpleNamespace:
+        """Request one cooperate boolean. Confidence does not choose the action."""
+        del questions
+        if not isinstance(state, Mapping):
+            raise LocalLLMError("Local LLM cooperate state must be an object")
+        payload = {
+            "model": self.model,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "You choose one repeated Prisoner's Dilemma action. "
+                        'Return only JSON shaped as {"cooperate":true,"confidence":0.7}. '
+                        "cooperate must be a JSON boolean, never a probability. "
+                        "confidence is your self-reported confidence from 0 to 1 and does not choose the action."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": json.dumps({"state": state}, sort_keys=True, separators=(",", ":")),
+                },
+            ],
+            "stream": False,
+            "temperature": self.temperature,
+        }
+        if self.reasoning_effort is not None:
+            payload["reasoning_effort"] = self.reasoning_effort
+        if self.max_tokens is not None:
+            payload["max_tokens"] = self.max_tokens
+        headers = {"Content-Type": "application/json"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        try:
+            response = self._transport(self.endpoint, payload, headers, self.timeout)
+        except LocalLLMError:
+            raise
+        except Exception as exc:
+            raise LocalLLMError(f"Local LLM request to {self.endpoint} failed: {exc}") from exc
+        content = _message_content(response)
+        decision = _content_json(content)
+        cooperate = _boolean_decision(decision.get("cooperate"), name="cooperate")
+        confidence = _bounded_number(decision.get("confidence"), name="confidence", low=0.0, high=1.0)
+        return SimpleNamespace(
+            nouls={"cooperate": SimpleNamespace(noul=1.0 if cooperate else 0.0, confidence=confidence)},
+            scores={},
+            choices={},
+            confidence_kind="llm_self_report",
+            raw_output=content,
+        )
+
+
 class LocalLLMThinkerClient:
     """Use a model behind an OpenAI-compatible chat-completions endpoint."""
 
