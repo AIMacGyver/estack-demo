@@ -126,6 +126,34 @@ def test_communication_enabled_keeps_schedule_and_changes_guard_behavior():
     assert enabled_guard["cooperation_rate"] < 1.0
 
 
+def test_communication_error_preserves_pairs_and_flips_published_warnings():
+    base = {
+        "schema_version": POPULATION_MANIFEST_VERSION,
+        "seed": 13,
+        "encounters": 8,
+        "rounds_per_match": 4,
+        "communication_enabled": True,
+        "population": {
+            "always_cooperate": 2,
+            "always_defect": 2,
+            "communication_guard": 2,
+        },
+    }
+    clean_events, _clean_summaries = run_population(normalize_manifest(base))
+    zero_events, _zero_summaries = run_population(normalize_manifest({**base, "communication_error_rate": 0}))
+    flipped_events, _flipped_summaries = run_population(normalize_manifest({**base, "communication_error_rate": 1}))
+    pairs = [(event["agent_a"], event["agent_b"]) for event in clean_events]
+    assert pairs == [(event["agent_a"], event["agent_b"]) for event in zero_events]
+    assert pairs == [(event["agent_a"], event["agent_b"]) for event in flipped_events]
+    assert all(event["warning_about_a"] is event["truthful_warning_about_a"] for event in zero_events)
+    assert all(event["warning_about_b"] is event["truthful_warning_about_b"] for event in zero_events)
+    assert all(event["warning_about_a"] is not event["truthful_warning_about_a"] for event in flipped_events)
+    assert all(event["warning_about_b"] is not event["truthful_warning_about_b"] for event in flipped_events)
+    assert clean_events != flipped_events
+    with pytest.raises(PopulationError, match="communication_error_rate"):
+        normalize_manifest({**base, "communication_error_rate": 1.5})
+
+
 def test_policy_aggregates_match_encounter_records():
     manifest = _manifest()
     events, summaries = run_population(manifest)
