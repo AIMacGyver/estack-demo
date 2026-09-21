@@ -222,6 +222,22 @@ for the fixed composition, results, and limits, then the
 The [truthful bounded-communication control](evidence/2026-09-21-communication/README.md)
 separates shared warnings from direct reputation.
 
+Run deterministic payoff-proportional selection over canonical policy
+frequencies:
+
+```bash
+uv run python -m spatial_ipd.evolution \
+  --manifest examples/evolution.json \
+  --jsonl evolution.jsonl \
+  --csv evolution.csv
+```
+
+Population size stays fixed; largest-remainder allocation converts each
+policy's total-payoff share into next-generation integer counts. The
+[first evolutionary evidence run](evidence/2026-09-21-evolution/README.md)
+uses a larger population to avoid coarse rounding and documents its no-mutation
+limits.
+
 The viewer accepts `--backend random|jev|local` when `--think-every` is set (`--seats` works there too). Applied holds are outlined green, other thinker decisions gold, and the selected cell cyan; its strategy and payoff appear in the title. The lower panel plots cooperation (blue) and largest-cluster share (green). Local uses the same `--local-model`, endpoint, timeout, and reasoning flags as other thinker commands.
 
 ```python
