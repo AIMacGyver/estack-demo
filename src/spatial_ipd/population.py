@@ -33,7 +33,7 @@ class PopulationError(ValueError):
     """A malformed population manifest or unsupported policy."""
 
 
-def normalize_manifest(value: object) -> dict[str, object]:
+def normalize_manifest(value: object, *, extra_policies: tuple[str, ...] = ()) -> dict[str, object]:
     """Validate and normalize one mixed-population manifest."""
     if not isinstance(value, Mapping):
         raise PopulationError("manifest must be an object")
@@ -53,7 +53,7 @@ def normalize_manifest(value: object) -> dict[str, object]:
         raise PopulationError("population must be a non-empty object")
     normalized_population = {}
     for policy, count in sorted(population.items()):
-        if policy not in POLICY_TYPES:
+        if policy not in POLICY_TYPES and policy not in extra_policies:
             raise PopulationError(f"unknown policy {policy!r}")
         if isinstance(count, bool) or not isinstance(count, int) or count < 1:
             raise PopulationError(f"population count for {policy!r} must be positive")
@@ -114,9 +114,12 @@ def _agents(population: Mapping[str, int]) -> list[tuple[str, str]]:
 
 def run_population(
     manifest: Mapping[str, object],
+    *,
+    factories: Mapping[str, object] | None = None,
 ) -> tuple[list[dict[str, object]], list[dict[str, object]]]:
     """Run seeded pair schedules and aggregate evidence by policy."""
-    normalized = normalize_manifest(manifest)
+    builders = dict(factories or {})
+    normalized = normalize_manifest(manifest, extra_policies=tuple(builders))
     rng = Random(int(normalized["seed"]))
     agents = _agents(normalized["population"])
     rounds = int(normalized["rounds_per_match"])
@@ -145,8 +148,8 @@ def run_population(
         rng.shuffle(scheduled)
         for pair_index in range(0, len(scheduled) - 1, 2):
             (agent_a, policy_a), (agent_b, policy_b) = scheduled[pair_index : pair_index + 2]
-            active_a = POLICY_TYPES[policy_a]()
-            active_b = POLICY_TYPES[policy_b]()
+            active_a = builders[policy_a]() if policy_a in builders else POLICY_TYPES[policy_a]()
+            active_b = builders[policy_b]() if policy_b in builders else POLICY_TYPES[policy_b]()
             if memory_window is not None:
                 active_a = MemoryWindowPolicy(active_a, int(memory_window))
                 active_b = MemoryWindowPolicy(active_b, int(memory_window))

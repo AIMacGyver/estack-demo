@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "seed": 20260921,
+  "encounters": 20,
+  "rounds_per_match": 10,
+  "memory_window": null,
+  "reputation_enabled": false,
+  "communication_enabled": false,
+  "population": {
+    "always_cooperate": 2,
+    "always_defect": 2,
+    "judged": 2,
+    "tit_for_tat": 2
+  }
+}

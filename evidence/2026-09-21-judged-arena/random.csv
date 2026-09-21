@@ -1,0 +1,5 @@
+memory_window,reputation_enabled,communication_enabled,communication_error_rate,policy,agents,matches,rounds,payoff,average_payoff_per_round,cooperation_rate,mutual_cooperation_rounds
+,False,False,0.0,always_cooperate,2,40,400,585,1.4625,1.0,195
+,False,False,0.0,always_defect,2,40,400,1208,3.02,0.0,0
+,False,False,0.0,judged,2,40,400,1002,2.505,0.5325,117
+,False,False,0.0,tit_for_tat,2,40,400,852,2.13,0.595,194
