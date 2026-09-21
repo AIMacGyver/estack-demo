@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "simulation": {
+    "height": 8,
+    "width": 8,
+    "generations": 10,
+    "mutation_rate": 0.02,
+    "cooperate_p": 0.5
+  },
+  "thinker": {
+    "think_every": 5,
+    "think_last": 0,
+    "sticky": 0,
+    "thinkers": 1,
+    "seats": "frontier"
+  },
+  "seeds": [1, 2, 3],
+  "backends": [
+    {
+      "id": "plain",
+      "kind": "baseline"
+    },
+    {
+      "id": "random-control",
+      "kind": "random"
+    },
+    {
+      "id": "jev",
+      "kind": "jev"
+    },
+    {
+      "id": "qwen3-8b-cluster-guard",
+      "kind": "local",
+      "model": "qwen3:8b",
+      "reasoning_effort": "none",
+      "prompt_profile": "cluster_guard_v1",
+      "temperature": 0.0,
+      "max_tokens": 256,
+      "timeout": 60
+    }
+  ]
+}
