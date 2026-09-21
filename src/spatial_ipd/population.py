@@ -15,6 +15,7 @@ from spatial_ipd.arena import POLICY_TYPES, MemoryWindowPolicy, play_match
 POPULATION_MANIFEST_VERSION = 1
 SUMMARY_FIELDS = (
     "memory_window",
+    "reputation_enabled",
     "policy",
     "agents",
     "matches",
@@ -62,12 +63,16 @@ def normalize_manifest(value: object) -> dict[str, object]:
         isinstance(memory_window, bool) or not isinstance(memory_window, int) or memory_window < 1
     ):
         raise PopulationError("memory_window must be null or a positive integer")
+    reputation_enabled = value.get("reputation_enabled", False)
+    if not isinstance(reputation_enabled, bool):
+        raise PopulationError("reputation_enabled must be boolean")
     return {
         "schema_version": POPULATION_MANIFEST_VERSION,
         "seed": seed,
         "encounters": encounters,
         "rounds_per_match": rounds,
         "memory_window": memory_window,
+        "reputation_enabled": reputation_enabled,
         "population": normalized_population,
     }
 
@@ -95,7 +100,9 @@ def run_population(
     agents = _agents(normalized["population"])
     rounds = int(normalized["rounds_per_match"])
     memory_window = normalized["memory_window"]
+    reputation_enabled = bool(normalized["reputation_enabled"])
     events = []
+    reputations = {agent_id: [0, 0] for agent_id, _policy in agents}
     totals = {
         policy: {
             "policy": policy,
@@ -118,10 +125,29 @@ def run_population(
             if memory_window is not None:
                 active_a = MemoryWindowPolicy(active_a, int(memory_window))
                 active_b = MemoryWindowPolicy(active_b, int(memory_window))
-            result = play_match(active_a, active_b, rounds=rounds)
+            reputation_a = (
+                reputations[agent_b][0] / reputations[agent_b][1]
+                if reputation_enabled and reputations[agent_b][1]
+                else None
+            )
+            reputation_b = (
+                reputations[agent_a][0] / reputations[agent_a][1]
+                if reputation_enabled and reputations[agent_a][1]
+                else None
+            )
+            result = play_match(
+                active_a,
+                active_b,
+                rounds=rounds,
+                opponent_reputation_a=reputation_a,
+                opponent_reputation_b=reputation_b,
+            )
             event = {
                 "record_type": "encounter",
                 "memory_window": memory_window,
+                "reputation_enabled": reputation_enabled,
+                "opponent_reputation_a": reputation_a,
+                "opponent_reputation_b": reputation_b,
                 "encounter": encounter,
                 "pair": pair_index // 2,
                 "agent_a": agent_a,
@@ -129,6 +155,10 @@ def run_population(
                 **asdict(result),
             }
             events.append(event)
+            reputations[agent_a][0] += sum(result.actions_a)
+            reputations[agent_a][1] += rounds
+            reputations[agent_b][0] += sum(result.actions_b)
+            reputations[agent_b][1] += rounds
             for policy, payoff, actions in (
                 (policy_a, result.payoff_a, result.actions_a),
                 (policy_b, result.payoff_b, result.actions_b),
@@ -146,6 +176,7 @@ def run_population(
         summaries.append(
             {
                 "memory_window": memory_window,
+                "reputation_enabled": reputation_enabled,
                 "policy": policy,
                 "agents": total["agents"],
                 "matches": total["matches"],
@@ -209,6 +240,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     print(
         f"agents={sum(manifest['population'].values())} encounters={manifest['encounters']} "
         f"matches={len(events)} policies={len(summaries)} memory_window={manifest['memory_window']} "
+        f"reputation_enabled={manifest['reputation_enabled']} "
         f"jsonl={args.jsonl} csv={args.csv}"
     )
     return 0

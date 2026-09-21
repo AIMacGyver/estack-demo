@@ -11,6 +11,7 @@ from spatial_ipd.arena import (
     MemoryWindowPolicy,
     Observation,
     Pavlov,
+    ReputationGuard,
     TitForTat,
     main,
     play_match,
@@ -70,6 +71,14 @@ def test_memory_window_changes_only_visible_history():
         rounds=4,
     )
     assert tft.actions_a == (C, D, D, D)
+
+
+def test_reputation_guard_cooperates_without_signal_and_gates_known_opponents():
+    policy = ReputationGuard(threshold=0.5)
+    base = dict(round_index=0, own_history=(), opponent_history=())
+    assert policy.choose(Observation(**base)) == C
+    assert policy.choose(Observation(**base, opponent_reputation=0.5)) == C
+    assert policy.choose(Observation(**base, opponent_reputation=0.49)) == D
 
 
 def test_round_robin_includes_self_play_and_every_pair():

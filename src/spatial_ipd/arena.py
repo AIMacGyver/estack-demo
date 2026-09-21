@@ -25,6 +25,7 @@ class Observation:
     round_index: int
     own_history: tuple[int, ...]
     opponent_history: tuple[int, ...]
+    opponent_reputation: float | None = None
 
 
 class Policy(Protocol):
@@ -116,8 +117,28 @@ class MemoryWindowPolicy:
                 round_index=observation.round_index,
                 own_history=observation.own_history[-self.window :],
                 opponent_history=observation.opponent_history[-self.window :],
+                opponent_reputation=observation.opponent_reputation,
             )
         )
+
+
+class ReputationGuard:
+    """Cooperate with unknown/reputable opponents and defect below threshold."""
+
+    name = "reputation_guard"
+
+    def __init__(self, threshold: float = 0.5):
+        """Bind a cooperation-rate threshold in [0, 1]."""
+        if not 0.0 <= threshold <= 1.0:
+            raise ValueError("reputation threshold must be in [0, 1]")
+        self.threshold = threshold
+
+    def choose(self, observation: Observation) -> int:
+        """Choose C without evidence; otherwise gate on opponent reputation."""
+        reputation = observation.opponent_reputation
+        if reputation is None or reputation >= self.threshold:
+            return COOPERATE
+        return DEFECT
 
 
 CANONICAL_POLICIES: tuple[type[Policy], ...] = (
@@ -128,6 +149,7 @@ CANONICAL_POLICIES: tuple[type[Policy], ...] = (
     ForgivingTitForTat,
 )
 POLICY_TYPES: dict[str, type[Policy]] = {policy_type.name: policy_type for policy_type in CANONICAL_POLICIES}
+POLICY_TYPES[ReputationGuard.name] = ReputationGuard
 
 
 @dataclass(frozen=True)
@@ -152,7 +174,14 @@ def _validated_action(action: int, policy_name: str) -> int:
     return int(action)
 
 
-def play_match(policy_a: Policy, policy_b: Policy, *, rounds: int) -> MatchResult:
+def play_match(
+    policy_a: Policy,
+    policy_b: Policy,
+    *,
+    rounds: int,
+    opponent_reputation_a: float | None = None,
+    opponent_reputation_b: float | None = None,
+) -> MatchResult:
     """Play simultaneous repeated Prisoner's Dilemma for ``rounds``."""
     if rounds < 1:
         raise ValueError("rounds must be positive")
@@ -168,6 +197,7 @@ def play_match(policy_a: Policy, policy_b: Policy, *, rounds: int) -> MatchResul
                     round_index=round_index,
                     own_history=tuple(actions_a),
                     opponent_history=tuple(actions_b),
+                    opponent_reputation=opponent_reputation_a,
                 )
             ),
             policy_a.name,
@@ -178,6 +208,7 @@ def play_match(policy_a: Policy, policy_b: Policy, *, rounds: int) -> MatchResul
                     round_index=round_index,
                     own_history=tuple(actions_b),
                     opponent_history=tuple(actions_a),
+                    opponent_reputation=opponent_reputation_b,
                 )
             ),
             policy_b.name,
