@@ -25,6 +25,7 @@ CSV_FIELDS = (
     "generation",
     "mutation_rate",
     "reputation_enabled",
+    "communication_enabled",
     "policy",
     "count",
     "payoff",
@@ -72,6 +73,9 @@ def normalize_manifest(value: object) -> dict[str, object]:
     reputation_enabled = value.get("reputation_enabled", False)
     if not isinstance(reputation_enabled, bool):
         raise EvolutionError("reputation_enabled must be boolean")
+    communication_enabled = value.get("communication_enabled", False)
+    if not isinstance(communication_enabled, bool):
+        raise EvolutionError("communication_enabled must be boolean")
     population_manifest = normalize_population_manifest(
         {
             "schema_version": POPULATION_MANIFEST_VERSION,
@@ -96,6 +100,7 @@ def normalize_manifest(value: object) -> dict[str, object]:
         "rounds_per_match": population_manifest["rounds_per_match"],
         "mutation_rate": float(mutation_rate),
         "reputation_enabled": reputation_enabled,
+        "communication_enabled": communication_enabled,
         "population": population_manifest["population"],
     }
 
@@ -180,7 +185,7 @@ def run_evolution(manifest: Mapping[str, object]) -> list[dict[str, object]]:
                     "rounds_per_match": normalized["rounds_per_match"],
                     "memory_window": None,
                     "reputation_enabled": normalized["reputation_enabled"],
-                    "communication_enabled": False,
+                    "communication_enabled": normalized["communication_enabled"],
                     "population": population,
                 }
             )
@@ -203,6 +208,7 @@ def run_evolution(manifest: Mapping[str, object]) -> list[dict[str, object]]:
                         "generation": generation,
                         "mutation_rate": normalized["mutation_rate"],
                         "reputation_enabled": normalized["reputation_enabled"],
+                        "communication_enabled": normalized["communication_enabled"],
                         "seed": population_manifest["seed"],
                         "policy": policy,
                         "count": population.get(policy, 0),
