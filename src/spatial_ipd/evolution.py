@@ -26,6 +26,7 @@ CSV_FIELDS = (
     "mutation_rate",
     "reputation_enabled",
     "communication_enabled",
+    "memory_window",
     "policy",
     "count",
     "payoff",
@@ -76,13 +77,14 @@ def normalize_manifest(value: object) -> dict[str, object]:
     communication_enabled = value.get("communication_enabled", False)
     if not isinstance(communication_enabled, bool):
         raise EvolutionError("communication_enabled must be boolean")
+    memory_window = value.get("memory_window")
     population_manifest = normalize_population_manifest(
         {
             "schema_version": POPULATION_MANIFEST_VERSION,
             "seed": seeds[0],
             "encounters": value.get("encounters_per_generation"),
             "rounds_per_match": value.get("rounds_per_match"),
-            "memory_window": None,
+            "memory_window": memory_window,
             "reputation_enabled": False,
             "communication_enabled": False,
             "population": value.get("population"),
@@ -101,6 +103,7 @@ def normalize_manifest(value: object) -> dict[str, object]:
         "mutation_rate": float(mutation_rate),
         "reputation_enabled": reputation_enabled,
         "communication_enabled": communication_enabled,
+        "memory_window": population_manifest["memory_window"],
         "population": population_manifest["population"],
     }
 
@@ -183,7 +186,7 @@ def run_evolution(manifest: Mapping[str, object]) -> list[dict[str, object]]:
                     "seed": int(replicate_seed) + generation,
                     "encounters": normalized["encounters_per_generation"],
                     "rounds_per_match": normalized["rounds_per_match"],
-                    "memory_window": None,
+                    "memory_window": normalized["memory_window"],
                     "reputation_enabled": normalized["reputation_enabled"],
                     "communication_enabled": normalized["communication_enabled"],
                     "population": population,
@@ -209,6 +212,7 @@ def run_evolution(manifest: Mapping[str, object]) -> list[dict[str, object]]:
                         "mutation_rate": normalized["mutation_rate"],
                         "reputation_enabled": normalized["reputation_enabled"],
                         "communication_enabled": normalized["communication_enabled"],
+                        "memory_window": normalized["memory_window"],
                         "seed": population_manifest["seed"],
                         "policy": policy,
                         "count": population.get(policy, 0),

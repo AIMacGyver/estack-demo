@@ -188,6 +188,42 @@ def test_combined_information_flags_differ_from_single_channels():
     assert all(row["reputation_enabled"] is True and row["communication_enabled"] is True for row in combined)
 
 
+def test_memory_window_propagates_and_window_one_changes_selection():
+    base = {
+        "schema_version": EVOLUTION_MANIFEST_VERSION,
+        "seed": 61,
+        "generations": 3,
+        "encounters_per_generation": 12,
+        "rounds_per_match": 5,
+        "mutation_rate": 0.0,
+        "population": {
+            "always_cooperate": 2,
+            "always_defect": 2,
+            "forgiving_tit_for_tat": 2,
+            "tit_for_tat": 2,
+        },
+    }
+    full = run_evolution(normalize_manifest(base))
+    window_one = run_evolution(normalize_manifest({**base, "memory_window": 1}))
+    window_two = run_evolution(normalize_manifest({**base, "memory_window": 2}))
+    window_four = run_evolution(normalize_manifest({**base, "memory_window": 4}))
+    assert all(row["memory_window"] is None for row in full)
+    assert all(row["memory_window"] == 1 for row in window_one)
+    assert [(row["replicate_seed"], row["generation"], row["seed"]) for row in full] == [
+        (row["replicate_seed"], row["generation"], row["seed"]) for row in window_one
+    ]
+    comparable = ("generation", "policy", "count", "payoff", "next_count")
+    assert [{key: row[key] for key in comparable} for row in full] != [
+        {key: row[key] for key in comparable} for row in window_one
+    ]
+    assert [{key: row[key] for key in comparable} for row in full] == [
+        {key: row[key] for key in comparable} for row in window_two
+    ]
+    assert [{key: row[key] for key in comparable} for row in window_two] == [
+        {key: row[key] for key in comparable} for row in window_four
+    ]
+
+
 def test_communication_enabled_defaults_false_and_rejects_non_boolean():
     manifest = _manifest()
     assert manifest["communication_enabled"] is False
