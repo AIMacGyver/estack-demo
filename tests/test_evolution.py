@@ -106,6 +106,31 @@ def test_multiple_base_seeds_produce_replicate_summaries():
     assert all(item["min_final_count"] <= item["mean_final_count"] <= item["max_final_count"] for item in summary)
 
 
+def test_reputation_flag_propagates_and_changes_selection_evidence():
+    base = {
+        "schema_version": EVOLUTION_MANIFEST_VERSION,
+        "seed": 31,
+        "generations": 3,
+        "encounters_per_generation": 12,
+        "rounds_per_match": 5,
+        "mutation_rate": 0.0,
+        "population": {
+            "always_cooperate": 2,
+            "always_defect": 2,
+            "reputation_guard": 2,
+            "tit_for_tat": 2,
+        },
+    }
+    disabled = run_evolution(normalize_manifest({**base, "reputation_enabled": False}))
+    enabled = run_evolution(normalize_manifest({**base, "reputation_enabled": True}))
+    assert all(row["reputation_enabled"] is False for row in disabled)
+    assert all(row["reputation_enabled"] is True for row in enabled)
+    assert [(row["replicate_seed"], row["generation"], row["seed"]) for row in disabled] == [
+        (row["replicate_seed"], row["generation"], row["seed"]) for row in enabled
+    ]
+    assert disabled != enabled
+
+
 def test_manifest_rejects_odd_population_and_bad_generation_count():
     value = {
         "schema_version": EVOLUTION_MANIFEST_VERSION,
