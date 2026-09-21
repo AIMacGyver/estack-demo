@@ -10,10 +10,11 @@ from dataclasses import asdict
 from pathlib import Path
 from random import Random
 
-from spatial_ipd.arena import POLICY_TYPES, play_match
+from spatial_ipd.arena import POLICY_TYPES, MemoryWindowPolicy, play_match
 
 POPULATION_MANIFEST_VERSION = 1
 SUMMARY_FIELDS = (
+    "memory_window",
     "policy",
     "agents",
     "matches",
@@ -56,11 +57,17 @@ def normalize_manifest(value: object) -> dict[str, object]:
         normalized_population[str(policy)] = count
     if sum(normalized_population.values()) < 2:
         raise PopulationError("population must contain at least two agents")
+    memory_window = value.get("memory_window")
+    if memory_window is not None and (
+        isinstance(memory_window, bool) or not isinstance(memory_window, int) or memory_window < 1
+    ):
+        raise PopulationError("memory_window must be null or a positive integer")
     return {
         "schema_version": POPULATION_MANIFEST_VERSION,
         "seed": seed,
         "encounters": encounters,
         "rounds_per_match": rounds,
+        "memory_window": memory_window,
         "population": normalized_population,
     }
 
@@ -87,6 +94,7 @@ def run_population(
     rng = Random(int(normalized["seed"]))
     agents = _agents(normalized["population"])
     rounds = int(normalized["rounds_per_match"])
+    memory_window = normalized["memory_window"]
     events = []
     totals = {
         policy: {
@@ -105,9 +113,15 @@ def run_population(
         rng.shuffle(scheduled)
         for pair_index in range(0, len(scheduled) - 1, 2):
             (agent_a, policy_a), (agent_b, policy_b) = scheduled[pair_index : pair_index + 2]
-            result = play_match(POLICY_TYPES[policy_a](), POLICY_TYPES[policy_b](), rounds=rounds)
+            active_a = POLICY_TYPES[policy_a]()
+            active_b = POLICY_TYPES[policy_b]()
+            if memory_window is not None:
+                active_a = MemoryWindowPolicy(active_a, int(memory_window))
+                active_b = MemoryWindowPolicy(active_b, int(memory_window))
+            result = play_match(active_a, active_b, rounds=rounds)
             event = {
                 "record_type": "encounter",
+                "memory_window": memory_window,
                 "encounter": encounter,
                 "pair": pair_index // 2,
                 "agent_a": agent_a,
@@ -131,6 +145,7 @@ def run_population(
         played_rounds = int(total["rounds"])
         summaries.append(
             {
+                "memory_window": memory_window,
                 "policy": policy,
                 "agents": total["agents"],
                 "matches": total["matches"],
@@ -193,7 +208,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     write_csv(args.csv, summaries)
     print(
         f"agents={sum(manifest['population'].values())} encounters={manifest['encounters']} "
-        f"matches={len(events)} policies={len(summaries)} jsonl={args.jsonl} csv={args.csv}"
+        f"matches={len(events)} policies={len(summaries)} memory_window={manifest['memory_window']} "
+        f"jsonl={args.jsonl} csv={args.csv}"
     )
     return 0
 

@@ -1,0 +1,6 @@
+memory_window,policy,agents,matches,rounds,payoff,average_payoff_per_round,cooperation_rate,mutual_cooperation_rounds
+2,always_cooperate,2,100,1000,2370,2.37,1.0,790
+2,always_defect,2,100,1000,2564,2.564,0.0,0
+2,forgiving_tit_for_tat,2,100,1000,2472,2.472,0.808,760
+2,pavlov,2,100,1000,2425,2.425,0.885,770
+2,tit_for_tat,2,100,1000,2622,2.622,0.838,820

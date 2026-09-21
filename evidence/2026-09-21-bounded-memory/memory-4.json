@@ -3,7 +3,7 @@
   "seed": 20260921,
   "encounters": 50,
   "rounds_per_match": 10,
-  "memory_window": null,
+  "memory_window": 4,
   "population": {
     "always_cooperate": 2,
     "always_defect": 2,

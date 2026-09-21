@@ -15,16 +15,18 @@ from spatial_ipd.population import (
 )
 
 
-def _manifest(seed=7):
+def _manifest(seed=7, memory_window=None):
     return normalize_manifest(
         {
             "schema_version": POPULATION_MANIFEST_VERSION,
             "seed": seed,
             "encounters": 4,
             "rounds_per_match": 5,
+            "memory_window": memory_window,
             "population": {
                 "always_cooperate": 2,
                 "always_defect": 2,
+                "forgiving_tit_for_tat": 1,
                 "tit_for_tat": 2,
             },
         }
@@ -37,7 +39,7 @@ def test_population_run_is_deterministic_for_same_seed():
     assert first == second
     events, summaries = first
     assert len(events) == 12
-    assert len(summaries) == 3
+    assert len(summaries) == 4
 
 
 def test_different_seed_changes_pair_schedule():
@@ -46,6 +48,24 @@ def test_different_seed_changes_pair_schedule():
     first_pairs = [(event["agent_a"], event["agent_b"]) for event in first_events]
     second_pairs = [(event["agent_a"], event["agent_b"]) for event in second_events]
     assert first_pairs != second_pairs
+
+
+def test_memory_windows_keep_schedule_and_isolate_policy_effect():
+    full_events, full_summaries = run_population(_manifest(memory_window=None))
+    one_events, one_summaries = run_population(_manifest(memory_window=1))
+    two_events, two_summaries = run_population(_manifest(memory_window=2))
+    four_events, four_summaries = run_population(_manifest(memory_window=4))
+    assert [(event["agent_a"], event["agent_b"]) for event in full_events] == [
+        (event["agent_a"], event["agent_b"]) for event in one_events
+    ]
+    full_by_policy = {summary["policy"]: summary for summary in full_summaries}
+    one_by_policy = {summary["policy"]: summary for summary in one_summaries}
+    assert one_by_policy["forgiving_tit_for_tat"] != full_by_policy["forgiving_tit_for_tat"]
+    assert (
+        [{key: value for key, value in summary.items() if key != "memory_window"} for summary in two_summaries]
+        == [{key: value for key, value in summary.items() if key != "memory_window"} for summary in four_summaries]
+        == [{key: value for key, value in summary.items() if key != "memory_window"} for summary in full_summaries]
+    )
 
 
 def test_policy_aggregates_match_encounter_records():
@@ -100,8 +120,8 @@ def test_population_cli_writes_jsonl_and_csv(tmp_path, capsys):
         )
         == 0
     )
-    assert len(jsonl_path.read_text(encoding="utf-8").splitlines()) == 15
-    assert csv_path.read_text(encoding="utf-8").count("\n") == 4
+    assert len(jsonl_path.read_text(encoding="utf-8").splitlines()) == 16
+    assert csv_path.read_text(encoding="utf-8").count("\n") == 5
     assert "matches=12" in capsys.readouterr().out
 
 
