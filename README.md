@@ -235,8 +235,9 @@ uv run python -m spatial_ipd.evolution \
 Population size stays fixed; largest-remainder allocation converts each
 policy's total-payoff share into next-generation integer counts. The
 [first evolutionary evidence run](evidence/2026-09-21-evolution/README.md)
-uses a larger population to avoid coarse rounding and documents its no-mutation
-limits.
+uses a larger population to avoid coarse rounding, repeats ten base seeds, and
+documents its no-mutation limits. Manifests accept either `seed` or a unique
+`seeds` list.
 
 The viewer accepts `--backend random|jev|local` when `--think-every` is set (`--seats` works there too). Applied holds are outlined green, other thinker decisions gold, and the selected cell cyan; its strategy and payoff appear in the title. The lower panel plots cooperation (blue) and largest-cluster share (green). Local uses the same `--local-model`, endpoint, timeout, and reasoning flags as other thinker commands.
 

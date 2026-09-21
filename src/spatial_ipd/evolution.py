@@ -8,6 +8,7 @@ import json
 import math
 from collections.abc import Mapping, Sequence
 from pathlib import Path
+from statistics import fmean
 
 from spatial_ipd.population import (
     POPULATION_MANIFEST_VERSION,
@@ -19,6 +20,7 @@ from spatial_ipd.population import (
 
 EVOLUTION_MANIFEST_VERSION = 1
 CSV_FIELDS = (
+    "replicate_seed",
     "generation",
     "policy",
     "count",
@@ -42,10 +44,22 @@ def normalize_manifest(value: object) -> dict[str, object]:
     generations = value.get("generations")
     if isinstance(generations, bool) or not isinstance(generations, int) or generations < 1:
         raise EvolutionError("generations must be a positive integer")
+    seeds_value = value.get("seeds")
+    if seeds_value is None:
+        seeds_value = [value.get("seed")]
+    if not isinstance(seeds_value, list) or not seeds_value:
+        raise EvolutionError("seeds must be a non-empty list")
+    seeds = []
+    for index, seed in enumerate(seeds_value):
+        if isinstance(seed, bool) or not isinstance(seed, int):
+            raise EvolutionError(f"seeds[{index}] must be an integer")
+        seeds.append(seed)
+    if len(set(seeds)) != len(seeds):
+        raise EvolutionError("seeds must be unique")
     population_manifest = normalize_population_manifest(
         {
             "schema_version": POPULATION_MANIFEST_VERSION,
-            "seed": value.get("seed"),
+            "seed": seeds[0],
             "encounters": value.get("encounters_per_generation"),
             "rounds_per_match": value.get("rounds_per_match"),
             "memory_window": None,
@@ -59,7 +73,8 @@ def normalize_manifest(value: object) -> dict[str, object]:
         raise EvolutionError("population size must be even so every encounter pairs all agents")
     return {
         "schema_version": EVOLUTION_MANIFEST_VERSION,
-        "seed": population_manifest["seed"],
+        "seed": seeds[0],
+        "seeds": seeds,
         "generations": generations,
         "encounters_per_generation": population_manifest["encounters"],
         "rounds_per_match": population_manifest["rounds_per_match"],
@@ -100,44 +115,67 @@ def allocate_offspring(payoffs: Mapping[str, float], population_size: int) -> di
 def run_evolution(manifest: Mapping[str, object]) -> list[dict[str, object]]:
     """Evaluate and reproduce policy populations for fixed generations."""
     normalized = normalize_manifest(manifest)
-    population = dict(normalized["population"])
-    population_size = sum(population.values())
     rows = []
-    for generation in range(int(normalized["generations"])):
-        population_manifest = normalize_population_manifest(
-            {
-                "schema_version": POPULATION_MANIFEST_VERSION,
-                "seed": int(normalized["seed"]) + generation,
-                "encounters": normalized["encounters_per_generation"],
-                "rounds_per_match": normalized["rounds_per_match"],
-                "memory_window": None,
-                "reputation_enabled": False,
-                "communication_enabled": False,
-                "population": population,
-            }
-        )
-        _events, summaries = run_population(population_manifest)
-        payoffs = {str(summary["policy"]): float(summary["payoff"]) for summary in summaries}
-        next_population = allocate_offspring(payoffs, population_size)
-        for summary in summaries:
-            policy = str(summary["policy"])
-            rows.append(
+    for replicate_seed in normalized["seeds"]:
+        population = dict(normalized["population"])
+        population_size = sum(population.values())
+        for generation in range(int(normalized["generations"])):
+            population_manifest = normalize_population_manifest(
                 {
-                    "record_type": "generation_policy",
-                    "generation": generation,
-                    "seed": population_manifest["seed"],
-                    "policy": policy,
-                    "count": population[policy],
-                    "payoff": summary["payoff"],
-                    "average_payoff_per_round": summary["average_payoff_per_round"],
-                    "cooperation_rate": summary["cooperation_rate"],
-                    "next_count": next_population.get(policy, 0),
+                    "schema_version": POPULATION_MANIFEST_VERSION,
+                    "seed": int(replicate_seed) + generation,
+                    "encounters": normalized["encounters_per_generation"],
+                    "rounds_per_match": normalized["rounds_per_match"],
+                    "memory_window": None,
+                    "reputation_enabled": False,
+                    "communication_enabled": False,
+                    "population": population,
                 }
             )
-        if sum(next_population.values()) != population_size:
-            raise AssertionError("offspring allocation changed population size")
-        population = next_population
+            _events, summaries = run_population(population_manifest)
+            payoffs = {str(summary["policy"]): float(summary["payoff"]) for summary in summaries}
+            next_population = allocate_offspring(payoffs, population_size)
+            for summary in summaries:
+                policy = str(summary["policy"])
+                rows.append(
+                    {
+                        "record_type": "generation_policy",
+                        "replicate_seed": replicate_seed,
+                        "generation": generation,
+                        "seed": population_manifest["seed"],
+                        "policy": policy,
+                        "count": population[policy],
+                        "payoff": summary["payoff"],
+                        "average_payoff_per_round": summary["average_payoff_per_round"],
+                        "cooperation_rate": summary["cooperation_rate"],
+                        "next_count": next_population.get(policy, 0),
+                    }
+                )
+            if sum(next_population.values()) != population_size:
+                raise AssertionError("offspring allocation changed population size")
+            population = next_population
     return rows
+
+
+def summarize_final(rows: Sequence[Mapping[str, object]]) -> list[dict[str, object]]:
+    """Summarize final policy counts across replicate seeds."""
+    if not rows:
+        raise EvolutionError("evolution rows must not be empty")
+    final_generation = max(int(row["generation"]) for row in rows)
+    counts: dict[str, list[int]] = {}
+    for row in rows:
+        if int(row["generation"]) == final_generation:
+            counts.setdefault(str(row["policy"]), []).append(int(row["next_count"]))
+    return [
+        {
+            "policy": policy,
+            "replicates": len(values),
+            "mean_final_count": fmean(values),
+            "min_final_count": min(values),
+            "max_final_count": max(values),
+        }
+        for policy, values in sorted(counts.items())
+    ]
 
 
 def write_jsonl(path: str | Path, rows: Sequence[Mapping[str, object]]) -> Path:
@@ -154,7 +192,7 @@ def write_csv(path: str | Path, rows: Sequence[Mapping[str, object]]) -> Path:
     """Write compact frequency/payoff evolution CSV."""
     destination = Path(path)
     with destination.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=CSV_FIELDS)
+        writer = csv.DictWriter(handle, fieldnames=CSV_FIELDS, lineterminator="\n")
         writer.writeheader()
         for row in rows:
             writer.writerow({field: row[field] for field in CSV_FIELDS})
@@ -180,10 +218,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     rows = run_evolution(manifest)
     write_jsonl(args.jsonl, rows)
     write_csv(args.csv, rows)
-    final_generation = int(manifest["generations"]) - 1
-    final = {str(row["policy"]): int(row["next_count"]) for row in rows if row["generation"] == final_generation}
+    final = summarize_final(rows)
     print(
-        f"generations={manifest['generations']} population={sum(final.values())} "
+        f"generations={manifest['generations']} replicates={len(manifest['seeds'])} "
         f"final={json.dumps(final, sort_keys=True, separators=(',', ':'))} "
         f"jsonl={args.jsonl} csv={args.csv}"
     )
