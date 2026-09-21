@@ -156,6 +156,38 @@ def test_communication_flag_propagates_and_changes_selection_evidence():
     assert disabled != enabled
 
 
+def test_combined_information_flags_differ_from_single_channels():
+    base = {
+        "schema_version": EVOLUTION_MANIFEST_VERSION,
+        "seed": 51,
+        "generations": 3,
+        "encounters_per_generation": 12,
+        "rounds_per_match": 5,
+        "mutation_rate": 0.0,
+        "population": {
+            "always_cooperate": 2,
+            "always_defect": 2,
+            "communication_guard": 2,
+            "reputation_guard": 2,
+            "tit_for_tat": 2,
+        },
+    }
+    reputation = run_evolution(normalize_manifest({**base, "reputation_enabled": True, "communication_enabled": False}))
+    communication = run_evolution(
+        normalize_manifest({**base, "reputation_enabled": False, "communication_enabled": True})
+    )
+    combined = run_evolution(normalize_manifest({**base, "reputation_enabled": True, "communication_enabled": True}))
+    keys = [(row["replicate_seed"], row["generation"], row["seed"]) for row in reputation]
+    assert keys == [(row["replicate_seed"], row["generation"], row["seed"]) for row in communication]
+    assert keys == [(row["replicate_seed"], row["generation"], row["seed"]) for row in combined]
+    assert reputation != communication
+    assert communication != combined
+    assert reputation != combined
+    assert all(row["reputation_enabled"] is True and row["communication_enabled"] is False for row in reputation)
+    assert all(row["reputation_enabled"] is False and row["communication_enabled"] is True for row in communication)
+    assert all(row["reputation_enabled"] is True and row["communication_enabled"] is True for row in combined)
+
+
 def test_communication_enabled_defaults_false_and_rejects_non_boolean():
     manifest = _manifest()
     assert manifest["communication_enabled"] is False
