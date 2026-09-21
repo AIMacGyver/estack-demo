@@ -154,6 +154,10 @@ uv run python -m spatial_ipd.ablate \
 
 The report matches generation/row/column decisions and shows action agreement, resist-probability and worth-confidence shifts, latency, and failures. Agreement remains a behavior comparison—not evidence of calibration or correctness.
 
+Committed research evidence lives under `evidence/`. Start with the
+[first matched Jev/local/random run](evidence/2026-09-21-matched-backends/README.md);
+its small sample is documented as diagnostic rather than conclusive.
+
 ### Probe deterministic motifs
 
 Send the same named, code-derived situations through a thinker backend and print one inspectable JSON object per motif:
