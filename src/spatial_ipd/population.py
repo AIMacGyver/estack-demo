@@ -16,6 +16,7 @@ POPULATION_MANIFEST_VERSION = 1
 SUMMARY_FIELDS = (
     "memory_window",
     "reputation_enabled",
+    "communication_enabled",
     "policy",
     "agents",
     "matches",
@@ -66,6 +67,9 @@ def normalize_manifest(value: object) -> dict[str, object]:
     reputation_enabled = value.get("reputation_enabled", False)
     if not isinstance(reputation_enabled, bool):
         raise PopulationError("reputation_enabled must be boolean")
+    communication_enabled = value.get("communication_enabled", False)
+    if not isinstance(communication_enabled, bool):
+        raise PopulationError("communication_enabled must be boolean")
     return {
         "schema_version": POPULATION_MANIFEST_VERSION,
         "seed": seed,
@@ -73,6 +77,7 @@ def normalize_manifest(value: object) -> dict[str, object]:
         "rounds_per_match": rounds,
         "memory_window": memory_window,
         "reputation_enabled": reputation_enabled,
+        "communication_enabled": communication_enabled,
         "population": normalized_population,
     }
 
@@ -101,8 +106,10 @@ def run_population(
     rounds = int(normalized["rounds_per_match"])
     memory_window = normalized["memory_window"]
     reputation_enabled = bool(normalized["reputation_enabled"])
+    communication_enabled = bool(normalized["communication_enabled"])
     events = []
     reputations = {agent_id: [0, 0] for agent_id, _policy in agents}
+    warnings = {agent_id: [0, 0] for agent_id, _policy in agents}
     totals = {
         policy: {
             "policy": policy,
@@ -135,19 +142,34 @@ def run_population(
                 if reputation_enabled and reputations[agent_a][1]
                 else None
             )
+            warning_rate_a = (
+                warnings[agent_b][0] / warnings[agent_b][1] if communication_enabled and warnings[agent_b][1] else None
+            )
+            warning_rate_b = (
+                warnings[agent_a][0] / warnings[agent_a][1] if communication_enabled and warnings[agent_a][1] else None
+            )
             result = play_match(
                 active_a,
                 active_b,
                 rounds=rounds,
                 opponent_reputation_a=reputation_a,
                 opponent_reputation_b=reputation_b,
+                opponent_warning_rate_a=warning_rate_a,
+                opponent_warning_rate_b=warning_rate_b,
             )
+            warning_about_a = result.cooperation_rate_a < 0.5
+            warning_about_b = result.cooperation_rate_b < 0.5
             event = {
                 "record_type": "encounter",
                 "memory_window": memory_window,
                 "reputation_enabled": reputation_enabled,
+                "communication_enabled": communication_enabled,
                 "opponent_reputation_a": reputation_a,
                 "opponent_reputation_b": reputation_b,
+                "opponent_warning_rate_a": warning_rate_a,
+                "opponent_warning_rate_b": warning_rate_b,
+                "warning_about_a": warning_about_a if communication_enabled else None,
+                "warning_about_b": warning_about_b if communication_enabled else None,
                 "encounter": encounter,
                 "pair": pair_index // 2,
                 "agent_a": agent_a,
@@ -159,6 +181,11 @@ def run_population(
             reputations[agent_a][1] += rounds
             reputations[agent_b][0] += sum(result.actions_b)
             reputations[agent_b][1] += rounds
+            if communication_enabled:
+                warnings[agent_a][0] += warning_about_a
+                warnings[agent_a][1] += 1
+                warnings[agent_b][0] += warning_about_b
+                warnings[agent_b][1] += 1
             for policy, payoff, actions in (
                 (policy_a, result.payoff_a, result.actions_a),
                 (policy_b, result.payoff_b, result.actions_b),
@@ -177,6 +204,7 @@ def run_population(
             {
                 "memory_window": memory_window,
                 "reputation_enabled": reputation_enabled,
+                "communication_enabled": communication_enabled,
                 "policy": policy,
                 "agents": total["agents"],
                 "matches": total["matches"],
@@ -241,6 +269,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         f"agents={sum(manifest['population'].values())} encounters={manifest['encounters']} "
         f"matches={len(events)} policies={len(summaries)} memory_window={manifest['memory_window']} "
         f"reputation_enabled={manifest['reputation_enabled']} "
+        f"communication_enabled={manifest['communication_enabled']} "
         f"jsonl={args.jsonl} csv={args.csv}"
     )
     return 0

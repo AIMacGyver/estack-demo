@@ -15,7 +15,12 @@ from spatial_ipd.population import (
 )
 
 
-def _manifest(seed=7, memory_window=None, reputation_enabled=False):
+def _manifest(
+    seed=7,
+    memory_window=None,
+    reputation_enabled=False,
+    communication_enabled=False,
+):
     return normalize_manifest(
         {
             "schema_version": POPULATION_MANIFEST_VERSION,
@@ -24,6 +29,7 @@ def _manifest(seed=7, memory_window=None, reputation_enabled=False):
             "rounds_per_match": 5,
             "memory_window": memory_window,
             "reputation_enabled": reputation_enabled,
+            "communication_enabled": communication_enabled,
             "population": {
                 "always_cooperate": 2,
                 "always_defect": 2,
@@ -90,6 +96,32 @@ def test_reputation_enabled_keeps_schedule_and_changes_guard_behavior():
     assert any(event["opponent_reputation_a"] is not None for event in enabled_events)
     disabled_guard = next(summary for summary in disabled_summaries if summary["policy"] == "reputation_guard")
     enabled_guard = next(summary for summary in enabled_summaries if summary["policy"] == "reputation_guard")
+    assert disabled_guard["cooperation_rate"] == 1.0
+    assert enabled_guard["cooperation_rate"] < 1.0
+
+
+def test_communication_enabled_keeps_schedule_and_changes_guard_behavior():
+    base = {
+        "schema_version": POPULATION_MANIFEST_VERSION,
+        "seed": 13,
+        "encounters": 12,
+        "rounds_per_match": 5,
+        "population": {
+            "always_cooperate": 2,
+            "always_defect": 2,
+            "communication_guard": 2,
+        },
+    }
+    disabled_events, disabled_summaries = run_population(normalize_manifest({**base, "communication_enabled": False}))
+    enabled_events, enabled_summaries = run_population(normalize_manifest({**base, "communication_enabled": True}))
+    assert [(event["agent_a"], event["agent_b"]) for event in disabled_events] == [
+        (event["agent_a"], event["agent_b"]) for event in enabled_events
+    ]
+    assert all(event["warning_about_a"] is None for event in disabled_events)
+    assert any(isinstance(event["warning_about_a"], bool) for event in enabled_events)
+    assert any(event["opponent_warning_rate_a"] is not None for event in enabled_events)
+    disabled_guard = next(summary for summary in disabled_summaries if summary["policy"] == "communication_guard")
+    enabled_guard = next(summary for summary in enabled_summaries if summary["policy"] == "communication_guard")
     assert disabled_guard["cooperation_rate"] == 1.0
     assert enabled_guard["cooperation_rate"] < 1.0
 

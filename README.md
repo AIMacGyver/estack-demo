@@ -219,6 +219,8 @@ See the [first mixed-population evidence run](evidence/2026-09-21-mixed-populati
 for the fixed composition, results, and limits, then the
 [bounded-memory comparison](evidence/2026-09-21-bounded-memory/README.md) and
 [cumulative-reputation control](evidence/2026-09-21-reputation/README.md).
+The [truthful bounded-communication control](evidence/2026-09-21-communication/README.md)
+separates shared warnings from direct reputation.
 
 The viewer accepts `--backend random|jev|local` when `--think-every` is set (`--seats` works there too). Applied holds are outlined green, other thinker decisions gold, and the selected cell cyan; its strategy and payoff appear in the title. The lower panel plots cooperation (blue) and largest-cluster share (green). Local uses the same `--local-model`, endpoint, timeout, and reasoning flags as other thinker commands.
 
