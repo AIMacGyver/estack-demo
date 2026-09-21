@@ -258,7 +258,10 @@ show why fixed-composition and evolutionary mechanism conclusions can differ.
 The
 [combined-information selection experiment](evidence/2026-09-21-combined-info-selection/README.md)
 then asks whether the two truthful channels are redundant once both guards
-share one roster.
+share one roster. Manifests also accept `communication_error_rate` in `[0, 1]`;
+the
+[noisy-communication experiment](evidence/2026-09-21-noisy-communication/README.md)
+flips each published warning at rate 0.25 without reshuffling pairs.
 
 The viewer accepts `--backend random|jev|local` when `--think-every` is set (`--seats` works there too). Applied holds are outlined green, other thinker decisions gold, and the selected cell cyan; its strategy and payoff appear in the title. The lower panel plots cooperation (blue) and largest-cluster share (green). Local uses the same `--local-model`, endpoint, timeout, and reasoning flags as other thinker commands.
 

@@ -26,6 +26,7 @@ CSV_FIELDS = (
     "mutation_rate",
     "reputation_enabled",
     "communication_enabled",
+    "communication_error_rate",
     "memory_window",
     "policy",
     "count",
@@ -78,6 +79,13 @@ def normalize_manifest(value: object) -> dict[str, object]:
     if not isinstance(communication_enabled, bool):
         raise EvolutionError("communication_enabled must be boolean")
     memory_window = value.get("memory_window")
+    communication_error_rate = value.get("communication_error_rate", 0.0)
+    if (
+        isinstance(communication_error_rate, bool)
+        or not isinstance(communication_error_rate, (int, float))
+        or not 0.0 <= float(communication_error_rate) <= 1.0
+    ):
+        raise EvolutionError("communication_error_rate must be in [0, 1]")
     population_manifest = normalize_population_manifest(
         {
             "schema_version": POPULATION_MANIFEST_VERSION,
@@ -87,6 +95,7 @@ def normalize_manifest(value: object) -> dict[str, object]:
             "memory_window": memory_window,
             "reputation_enabled": False,
             "communication_enabled": False,
+            "communication_error_rate": communication_error_rate,
             "population": value.get("population"),
         }
     )
@@ -103,6 +112,7 @@ def normalize_manifest(value: object) -> dict[str, object]:
         "mutation_rate": float(mutation_rate),
         "reputation_enabled": reputation_enabled,
         "communication_enabled": communication_enabled,
+        "communication_error_rate": population_manifest["communication_error_rate"],
         "memory_window": population_manifest["memory_window"],
         "population": population_manifest["population"],
     }
@@ -189,6 +199,7 @@ def run_evolution(manifest: Mapping[str, object]) -> list[dict[str, object]]:
                     "memory_window": normalized["memory_window"],
                     "reputation_enabled": normalized["reputation_enabled"],
                     "communication_enabled": normalized["communication_enabled"],
+                    "communication_error_rate": normalized["communication_error_rate"],
                     "population": population,
                 }
             )
@@ -212,6 +223,7 @@ def run_evolution(manifest: Mapping[str, object]) -> list[dict[str, object]]:
                         "mutation_rate": normalized["mutation_rate"],
                         "reputation_enabled": normalized["reputation_enabled"],
                         "communication_enabled": normalized["communication_enabled"],
+                        "communication_error_rate": normalized["communication_error_rate"],
                         "memory_window": normalized["memory_window"],
                         "seed": population_manifest["seed"],
                         "policy": policy,

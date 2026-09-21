@@ -224,6 +224,34 @@ def test_memory_window_propagates_and_window_one_changes_selection():
     ]
 
 
+def test_communication_error_rate_changes_selection_without_moving_seeds():
+    base = {
+        "schema_version": EVOLUTION_MANIFEST_VERSION,
+        "seed": 71,
+        "generations": 3,
+        "encounters_per_generation": 12,
+        "rounds_per_match": 5,
+        "mutation_rate": 0.0,
+        "communication_enabled": True,
+        "population": {
+            "always_cooperate": 2,
+            "always_defect": 2,
+            "communication_guard": 2,
+            "tit_for_tat": 2,
+        },
+    }
+    clean = run_evolution(normalize_manifest(base))
+    noisy = run_evolution(normalize_manifest({**base, "communication_error_rate": 1}))
+    assert all(row["communication_error_rate"] == 0.0 for row in clean)
+    assert all(row["communication_error_rate"] == 1.0 for row in noisy)
+    assert [(row["replicate_seed"], row["generation"], row["seed"]) for row in clean] == [
+        (row["replicate_seed"], row["generation"], row["seed"]) for row in noisy
+    ]
+    assert clean != noisy
+    with pytest.raises(EvolutionError, match="communication_error_rate"):
+        normalize_manifest({**base, "communication_error_rate": True})
+
+
 def test_communication_enabled_defaults_false_and_rejects_non_boolean():
     manifest = _manifest()
     assert manifest["communication_enabled"] is False

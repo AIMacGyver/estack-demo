@@ -17,6 +17,7 @@ SUMMARY_FIELDS = (
     "memory_window",
     "reputation_enabled",
     "communication_enabled",
+    "communication_error_rate",
     "policy",
     "agents",
     "matches",
@@ -70,6 +71,13 @@ def normalize_manifest(value: object) -> dict[str, object]:
     communication_enabled = value.get("communication_enabled", False)
     if not isinstance(communication_enabled, bool):
         raise PopulationError("communication_enabled must be boolean")
+    communication_error_rate = value.get("communication_error_rate", 0.0)
+    if (
+        isinstance(communication_error_rate, bool)
+        or not isinstance(communication_error_rate, (int, float))
+        or not 0.0 <= float(communication_error_rate) <= 1.0
+    ):
+        raise PopulationError("communication_error_rate must be in [0, 1]")
     return {
         "schema_version": POPULATION_MANIFEST_VERSION,
         "seed": seed,
@@ -78,6 +86,7 @@ def normalize_manifest(value: object) -> dict[str, object]:
         "memory_window": memory_window,
         "reputation_enabled": reputation_enabled,
         "communication_enabled": communication_enabled,
+        "communication_error_rate": float(communication_error_rate),
         "population": normalized_population,
     }
 
@@ -90,6 +99,13 @@ def read_manifest(path: str | Path) -> dict[str, object]:
     except json.JSONDecodeError as exc:
         raise PopulationError(f"manifest {source} is invalid JSON") from exc
     return normalize_manifest(value)
+
+
+def _published_warning(truthful: bool, *, rate: float, rng: Random) -> bool:
+    """Flip a truthful warning on an independent stream when the error rate hits."""
+    if rate > 0 and rng.random() < rate:
+        return not truthful
+    return truthful
 
 
 def _agents(population: Mapping[str, int]) -> list[tuple[str, str]]:
@@ -107,6 +123,8 @@ def run_population(
     memory_window = normalized["memory_window"]
     reputation_enabled = bool(normalized["reputation_enabled"])
     communication_enabled = bool(normalized["communication_enabled"])
+    communication_error_rate = float(normalized["communication_error_rate"])
+    error_rng = Random(int(normalized["seed"]) * 1_000_003 + 17)
     events = []
     reputations = {agent_id: [0, 0] for agent_id, _policy in agents}
     warnings = {agent_id: [0, 0] for agent_id, _policy in agents}
@@ -157,19 +175,32 @@ def run_population(
                 opponent_warning_rate_a=warning_rate_a,
                 opponent_warning_rate_b=warning_rate_b,
             )
-            warning_about_a = result.cooperation_rate_a < 0.5
-            warning_about_b = result.cooperation_rate_b < 0.5
+            truthful_warning_a = result.cooperation_rate_a < 0.5
+            truthful_warning_b = result.cooperation_rate_b < 0.5
+            warning_about_a = (
+                _published_warning(truthful_warning_a, rate=communication_error_rate, rng=error_rng)
+                if communication_enabled
+                else None
+            )
+            warning_about_b = (
+                _published_warning(truthful_warning_b, rate=communication_error_rate, rng=error_rng)
+                if communication_enabled
+                else None
+            )
             event = {
                 "record_type": "encounter",
                 "memory_window": memory_window,
                 "reputation_enabled": reputation_enabled,
                 "communication_enabled": communication_enabled,
+                "communication_error_rate": communication_error_rate,
                 "opponent_reputation_a": reputation_a,
                 "opponent_reputation_b": reputation_b,
                 "opponent_warning_rate_a": warning_rate_a,
                 "opponent_warning_rate_b": warning_rate_b,
-                "warning_about_a": warning_about_a if communication_enabled else None,
-                "warning_about_b": warning_about_b if communication_enabled else None,
+                "warning_about_a": warning_about_a,
+                "warning_about_b": warning_about_b,
+                "truthful_warning_about_a": truthful_warning_a if communication_enabled else None,
+                "truthful_warning_about_b": truthful_warning_b if communication_enabled else None,
                 "encounter": encounter,
                 "pair": pair_index // 2,
                 "agent_a": agent_a,
@@ -182,9 +213,9 @@ def run_population(
             reputations[agent_b][0] += sum(result.actions_b)
             reputations[agent_b][1] += rounds
             if communication_enabled:
-                warnings[agent_a][0] += warning_about_a
+                warnings[agent_a][0] += int(warning_about_a)
                 warnings[agent_a][1] += 1
-                warnings[agent_b][0] += warning_about_b
+                warnings[agent_b][0] += int(warning_about_b)
                 warnings[agent_b][1] += 1
             for policy, payoff, actions in (
                 (policy_a, result.payoff_a, result.actions_a),
@@ -205,6 +236,7 @@ def run_population(
                 "memory_window": memory_window,
                 "reputation_enabled": reputation_enabled,
                 "communication_enabled": communication_enabled,
+                "communication_error_rate": communication_error_rate,
                 "policy": policy,
                 "agents": total["agents"],
                 "matches": total["matches"],
@@ -270,6 +302,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         f"matches={len(events)} policies={len(summaries)} memory_window={manifest['memory_window']} "
         f"reputation_enabled={manifest['reputation_enabled']} "
         f"communication_enabled={manifest['communication_enabled']} "
+        f"communication_error_rate={manifest['communication_error_rate']} "
         f"jsonl={args.jsonl} csv={args.csv}"
     )
     return 0
