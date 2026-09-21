@@ -1,0 +1,110 @@
+"""Deterministic mixed-policy schedules and aggregate accounting."""
+
+import json
+
+import pytest
+
+from spatial_ipd.engine import simulate
+from spatial_ipd.population import (
+    POPULATION_MANIFEST_VERSION,
+    PopulationError,
+    main,
+    normalize_manifest,
+    run_population,
+    write_jsonl,
+)
+
+
+def _manifest(seed=7):
+    return normalize_manifest(
+        {
+            "schema_version": POPULATION_MANIFEST_VERSION,
+            "seed": seed,
+            "encounters": 4,
+            "rounds_per_match": 5,
+            "population": {
+                "always_cooperate": 2,
+                "always_defect": 2,
+                "tit_for_tat": 2,
+            },
+        }
+    )
+
+
+def test_population_run_is_deterministic_for_same_seed():
+    first = run_population(_manifest())
+    second = run_population(_manifest())
+    assert first == second
+    events, summaries = first
+    assert len(events) == 12
+    assert len(summaries) == 3
+
+
+def test_different_seed_changes_pair_schedule():
+    first_events, _ = run_population(_manifest(seed=7))
+    second_events, _ = run_population(_manifest(seed=8))
+    first_pairs = [(event["agent_a"], event["agent_b"]) for event in first_events]
+    second_pairs = [(event["agent_a"], event["agent_b"]) for event in second_events]
+    assert first_pairs != second_pairs
+
+
+def test_policy_aggregates_match_encounter_records():
+    manifest = _manifest()
+    events, summaries = run_population(manifest)
+    summary_by_policy = {summary["policy"]: summary for summary in summaries}
+    assert sum(summary["matches"] for summary in summaries) == 2 * len(events)
+    assert sum(summary["rounds"] for summary in summaries) == 2 * len(events) * 5
+    for policy, count in manifest["population"].items():
+        assert summary_by_policy[policy]["agents"] == count
+        assert 0.0 <= summary_by_policy[policy]["cooperation_rate"] <= 1.0
+        assert summary_by_policy[policy]["rounds"] == summary_by_policy[policy]["matches"] * 5
+
+
+def test_jsonl_is_byte_identical_for_same_evidence(tmp_path):
+    events, summaries = run_population(_manifest())
+    first = write_jsonl(tmp_path / "first.jsonl", events, summaries)
+    second = write_jsonl(tmp_path / "second.jsonl", events, summaries)
+    assert first.read_bytes() == second.read_bytes()
+
+
+def test_manifest_rejects_unknown_policy_and_bad_counts():
+    value = {
+        "schema_version": POPULATION_MANIFEST_VERSION,
+        "seed": 1,
+        "encounters": 1,
+        "rounds_per_match": 1,
+        "population": {"unknown": 2},
+    }
+    with pytest.raises(PopulationError, match="unknown policy"):
+        normalize_manifest(value)
+    value["population"] = {"always_cooperate": 0}
+    with pytest.raises(PopulationError, match="positive"):
+        normalize_manifest(value)
+
+
+def test_population_cli_writes_jsonl_and_csv(tmp_path, capsys):
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(json.dumps(_manifest()), encoding="utf-8")
+    jsonl_path = tmp_path / "population.jsonl"
+    csv_path = tmp_path / "population.csv"
+    assert (
+        main(
+            [
+                "--manifest",
+                str(manifest_path),
+                "--jsonl",
+                str(jsonl_path),
+                "--csv",
+                str(csv_path),
+            ]
+        )
+        == 0
+    )
+    assert len(jsonl_path.read_text(encoding="utf-8").splitlines()) == 15
+    assert csv_path.read_text(encoding="utf-8").count("\n") == 4
+    assert "matches=12" in capsys.readouterr().out
+
+
+def test_population_slice_preserves_spatial_golden():
+    result = simulate(12, 12, 30, seed=20260316, mutation_rate=0.02)
+    assert result.final_cooperation_rate == 2 / 144
