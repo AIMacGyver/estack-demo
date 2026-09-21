@@ -6,7 +6,6 @@ import argparse
 import csv
 import json
 from collections.abc import Mapping, Sequence
-from dataclasses import asdict
 from pathlib import Path
 from random import Random
 
@@ -208,7 +207,16 @@ def run_population(
                 "pair": pair_index // 2,
                 "agent_a": agent_a,
                 "agent_b": agent_b,
-                **asdict(result),
+                "policy_a": result.policy_a,
+                "policy_b": result.policy_b,
+                "rounds": result.rounds,
+                "actions_a": list(result.actions_a),
+                "actions_b": list(result.actions_b),
+                "payoff_a": result.payoff_a,
+                "payoff_b": result.payoff_b,
+                "cooperation_rate_a": result.cooperation_rate_a,
+                "cooperation_rate_b": result.cooperation_rate_b,
+                "mutual_cooperation_rounds": result.mutual_cooperation_rounds,
             }
             events.append(event)
             reputations[agent_a][0] += sum(result.actions_a)
