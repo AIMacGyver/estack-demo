@@ -159,6 +159,10 @@ Committed research evidence lives under `evidence/`. Start with the
 its small sample is documented as diagnostic rather than conclusive. The
 [counterfactual label-yield spike](evidence/2026-09-21-counterfactual-yield/README.md)
 records why exact ties remain unresolved and calibration claims are deferred.
+The
+[component-hold yield](evidence/2026-09-21-component-hold-yield/README.md)
+finds 63 small positive labels and still no negatives, so the reliability gate
+stays unmet.
 
 ### Probe deterministic motifs
 
