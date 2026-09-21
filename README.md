@@ -213,10 +213,11 @@ uv run python -m spatial_ipd.population \
   --csv population-summary.csv
 ```
 
-The manifest fixes canonical policy counts, encounter schedules, and rounds per match. JSONL preserves every identified pairing and action history; CSV aggregates payoff and cooperation by policy. Repeating the same seed is byte-identical, while another seed changes pairing order.
+The manifest fixes canonical policy counts, encounter schedules, and rounds per match. Optional `memory_window` truncates the within-match history visible to every policy while preserving the pair schedule. JSONL preserves every identified pairing and action history; CSV aggregates payoff and cooperation by policy. Repeating the same seed is byte-identical, while another seed changes pairing order.
 
 See the [first mixed-population evidence run](evidence/2026-09-21-mixed-population/README.md)
-for the fixed composition, results, and limits.
+for the fixed composition, results, and limits, then the
+[bounded-memory comparison](evidence/2026-09-21-bounded-memory/README.md).
 
 The viewer accepts `--backend random|jev|local` when `--think-every` is set (`--seats` works there too). Applied holds are outlined green, other thinker decisions gold, and the selected cell cyan; its strategy and payoff appear in the title. The lower panel plots cooperation (blue) and largest-cluster share (green). Local uses the same `--local-model`, endpoint, timeout, and reasoning flags as other thinker commands.
 

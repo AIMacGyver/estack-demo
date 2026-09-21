@@ -8,6 +8,7 @@ from spatial_ipd.arena import (
     AlwaysCooperate,
     AlwaysDefect,
     ForgivingTitForTat,
+    MemoryWindowPolicy,
     Observation,
     Pavlov,
     TitForTat,
@@ -54,6 +55,21 @@ def test_pavlov_switches_after_sucker_and_punishment():
 def test_forgiving_tit_for_tat_waits_for_two_defections():
     result = play_match(ForgivingTitForTat(), AlwaysDefect(), rounds=4)
     assert result.actions_a == (C, C, D, D)
+
+
+def test_memory_window_changes_only_visible_history():
+    limited = play_match(
+        MemoryWindowPolicy(ForgivingTitForTat(), 1),
+        AlwaysDefect(),
+        rounds=4,
+    )
+    assert limited.actions_a == (C, C, C, C)
+    tft = play_match(
+        MemoryWindowPolicy(TitForTat(), 1),
+        AlwaysDefect(),
+        rounds=4,
+    )
+    assert tft.actions_a == (C, D, D, D)
 
 
 def test_round_robin_includes_self_play_and_every_pair():

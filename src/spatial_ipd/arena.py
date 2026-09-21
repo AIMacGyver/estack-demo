@@ -98,6 +98,28 @@ class ForgivingTitForTat:
         return DEFECT if observation.opponent_history[-2:] == (DEFECT, DEFECT) else COOPERATE
 
 
+class MemoryWindowPolicy:
+    """Expose only the most recent ``window`` rounds to another policy."""
+
+    def __init__(self, policy: Policy, window: int):
+        """Bind one policy to a positive history window."""
+        if window < 1:
+            raise ValueError("memory window must be positive")
+        self.policy = policy
+        self.window = window
+        self.name = policy.name
+
+    def choose(self, observation: Observation) -> int:
+        """Delegate with histories truncated to the configured window."""
+        return self.policy.choose(
+            Observation(
+                round_index=observation.round_index,
+                own_history=observation.own_history[-self.window :],
+                opponent_history=observation.opponent_history[-self.window :],
+            )
+        )
+
+
 CANONICAL_POLICIES: tuple[type[Policy], ...] = (
     AlwaysCooperate,
     AlwaysDefect,
