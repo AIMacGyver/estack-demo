@@ -156,7 +156,9 @@ The report matches generation/row/column decisions and shows action agreement, r
 
 Committed research evidence lives under `evidence/`. Start with the
 [first matched Jev/local/random run](evidence/2026-09-21-matched-backends/README.md);
-its small sample is documented as diagnostic rather than conclusive.
+its small sample is documented as diagnostic rather than conclusive. The
+[counterfactual label-yield spike](evidence/2026-09-21-counterfactual-yield/README.md)
+records why exact ties remain unresolved and calibration claims are deferred.
 
 ### Probe deterministic motifs
 
