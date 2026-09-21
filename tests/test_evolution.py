@@ -10,6 +10,7 @@ from spatial_ipd.evolution import (
     EvolutionError,
     allocate_offspring,
     main,
+    mutate_offspring,
     normalize_manifest,
     run_evolution,
     summarize_final,
@@ -46,6 +47,28 @@ def test_largest_remainder_allocation_is_stable_and_size_preserving():
         "c": 3,
     }
     assert allocate_offspring({"a": 10.0, "b": 0.0}, 4) == {"a": 4}
+
+
+def test_seeded_mutation_preserves_size_and_can_reintroduce_policies():
+    unchanged, incoming, outgoing = mutate_offspring(
+        {"a": 4},
+        roster=("a", "b", "c"),
+        mutation_rate=0.0,
+        seed=1,
+    )
+    assert unchanged == {"a": 4}
+    assert sum(incoming.values()) == sum(outgoing.values()) == 0
+
+    mutated, incoming, outgoing = mutate_offspring(
+        {"a": 100},
+        roster=("a", "b", "c"),
+        mutation_rate=0.5,
+        seed=1,
+    )
+    assert sum(mutated.values()) == 100
+    assert mutated["b"] > 0
+    assert mutated["c"] > 0
+    assert sum(incoming.values()) == sum(outgoing.values())
 
 
 def test_evolution_is_deterministic_and_population_size_is_constant():
@@ -97,6 +120,10 @@ def test_manifest_rejects_odd_population_and_bad_generation_count():
     value["population"]["always_cooperate"] = 2
     value["generations"] = 0
     with pytest.raises(EvolutionError, match="generations"):
+        normalize_manifest(value)
+    value["generations"] = 2
+    value["mutation_rate"] = 1.5
+    with pytest.raises(EvolutionError, match="mutation_rate"):
         normalize_manifest(value)
 
 

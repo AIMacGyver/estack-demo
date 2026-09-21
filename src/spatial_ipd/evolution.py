@@ -8,6 +8,7 @@ import json
 import math
 from collections.abc import Mapping, Sequence
 from pathlib import Path
+from random import Random
 from statistics import fmean
 
 from spatial_ipd.population import (
@@ -22,11 +23,15 @@ EVOLUTION_MANIFEST_VERSION = 1
 CSV_FIELDS = (
     "replicate_seed",
     "generation",
+    "mutation_rate",
     "policy",
     "count",
     "payoff",
     "average_payoff_per_round",
     "cooperation_rate",
+    "selected_count",
+    "mutations_in",
+    "mutations_out",
     "next_count",
 )
 
@@ -56,6 +61,13 @@ def normalize_manifest(value: object) -> dict[str, object]:
         seeds.append(seed)
     if len(set(seeds)) != len(seeds):
         raise EvolutionError("seeds must be unique")
+    mutation_rate = value.get("mutation_rate", 0.0)
+    if (
+        isinstance(mutation_rate, bool)
+        or not isinstance(mutation_rate, (int, float))
+        or not 0.0 <= float(mutation_rate) <= 1.0
+    ):
+        raise EvolutionError("mutation_rate must be in [0, 1]")
     population_manifest = normalize_population_manifest(
         {
             "schema_version": POPULATION_MANIFEST_VERSION,
@@ -78,6 +90,7 @@ def normalize_manifest(value: object) -> dict[str, object]:
         "generations": generations,
         "encounters_per_generation": population_manifest["encounters"],
         "rounds_per_match": population_manifest["rounds_per_match"],
+        "mutation_rate": float(mutation_rate),
         "population": population_manifest["population"],
     }
 
@@ -112,10 +125,44 @@ def allocate_offspring(payoffs: Mapping[str, float], population_size: int) -> di
     return {policy: count for policy, count in sorted(counts.items()) if count}
 
 
+def mutate_offspring(
+    selected: Mapping[str, int],
+    *,
+    roster: Sequence[str],
+    mutation_rate: float,
+    seed: int,
+) -> tuple[dict[str, int], dict[str, int], dict[str, int]]:
+    """Mutate selected offspring uniformly to a different roster policy."""
+    if not 0.0 <= mutation_rate <= 1.0:
+        raise EvolutionError("mutation_rate must be in [0, 1]")
+    policies = tuple(sorted(roster))
+    if not policies:
+        raise EvolutionError("mutation roster must not be empty")
+    counts = {policy: 0 for policy in policies}
+    mutations_in = {policy: 0 for policy in policies}
+    mutations_out = {policy: 0 for policy in policies}
+    rng = Random(seed)
+    for policy in policies:
+        for _ in range(int(selected.get(policy, 0))):
+            target = policy
+            alternatives = tuple(candidate for candidate in policies if candidate != policy)
+            if alternatives and rng.random() < mutation_rate:
+                target = alternatives[rng.randrange(len(alternatives))]
+                mutations_out[policy] += 1
+                mutations_in[target] += 1
+            counts[target] += 1
+    return (
+        {policy: count for policy, count in counts.items() if count},
+        mutations_in,
+        mutations_out,
+    )
+
+
 def run_evolution(manifest: Mapping[str, object]) -> list[dict[str, object]]:
     """Evaluate and reproduce policy populations for fixed generations."""
     normalized = normalize_manifest(manifest)
     rows = []
+    roster = tuple(sorted(normalized["population"]))
     for replicate_seed in normalized["seeds"]:
         population = dict(normalized["population"])
         population_size = sum(population.values())
@@ -134,20 +181,31 @@ def run_evolution(manifest: Mapping[str, object]) -> list[dict[str, object]]:
             )
             _events, summaries = run_population(population_manifest)
             payoffs = {str(summary["policy"]): float(summary["payoff"]) for summary in summaries}
-            next_population = allocate_offspring(payoffs, population_size)
-            for summary in summaries:
-                policy = str(summary["policy"])
+            selected_population = allocate_offspring(payoffs, population_size)
+            next_population, mutations_in, mutations_out = mutate_offspring(
+                selected_population,
+                roster=roster,
+                mutation_rate=float(normalized["mutation_rate"]),
+                seed=int(replicate_seed) * 1_000_003 + generation,
+            )
+            summaries_by_policy = {str(summary["policy"]): summary for summary in summaries}
+            for policy in roster:
+                summary = summaries_by_policy.get(policy)
                 rows.append(
                     {
                         "record_type": "generation_policy",
                         "replicate_seed": replicate_seed,
                         "generation": generation,
+                        "mutation_rate": normalized["mutation_rate"],
                         "seed": population_manifest["seed"],
                         "policy": policy,
-                        "count": population[policy],
-                        "payoff": summary["payoff"],
-                        "average_payoff_per_round": summary["average_payoff_per_round"],
-                        "cooperation_rate": summary["cooperation_rate"],
+                        "count": population.get(policy, 0),
+                        "payoff": summary["payoff"] if summary else 0,
+                        "average_payoff_per_round": (summary["average_payoff_per_round"] if summary else None),
+                        "cooperation_rate": summary["cooperation_rate"] if summary else None,
+                        "selected_count": selected_population.get(policy, 0),
+                        "mutations_in": mutations_in[policy],
+                        "mutations_out": mutations_out[policy],
                         "next_count": next_population.get(policy, 0),
                     }
                 )

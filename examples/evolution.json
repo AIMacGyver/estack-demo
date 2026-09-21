@@ -2,6 +2,7 @@
   "schema_version": 1,
   "seed": 20260921,
   "generations": 10,
+  "mutation_rate": 0.0,
   "encounters_per_generation": 50,
   "rounds_per_match": 10,
   "population": {
